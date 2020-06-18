@@ -13,6 +13,7 @@
 
 -export([blocking_refresh/0]).
 -export([refresh/0, refresh/1]).
+-export([flush/0]).
 
 -include("conference.hrl").
 
@@ -45,3 +46,7 @@ refresh() ->
 -spec refresh(any()) -> 'started'.
 refresh(_Account) ->
     io:format("This function is deprecated, please use kapps_maintenance:refresh(~p) instead.", [_Account]).
+
+-spec flush() -> 'ok'.
+flush() ->
+    kz_cache:flush_local(?CACHE_NAME).
