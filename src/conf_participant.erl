@@ -297,6 +297,7 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
     Route = binary:replace(kz_json:get_value(<<"Switch-URL">>, JObj)
                           ,<<"mod_sofia">>
                           ,<<"conference">>
+                          %%,kapps_call:request_user(Call)
                           ),
     bridge_to_conference(Route, Conference, Call, Name),
     {'noreply', Participant#participant{remote='true'}};
@@ -486,8 +487,6 @@ bridge_to_conference(Route, Conference, Call, Name) ->
     lager:debug("bridging to conference running at '~s'", [Route]),
     Endpoint = kz_json:from_list([{<<"Invite-Format">>, <<"route">>}
                                  ,{<<"Route">>, Route}
-                                 ,{<<"Auth-User">>, kapps_conference:bridge_username(Conference)}
-                                 ,{<<"Auth-Password">>, kapps_conference:bridge_password(Conference)}
                                  ,{<<"Outbound-Caller-ID-Number">>, kapps_call:caller_id_number(Call)}
                                  ,{<<"Outbound-Caller-ID-Name">>, kapps_call:caller_id_name(Call)}
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
@@ -495,10 +494,11 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                                                 ,"@", get_account_realm(Call)
                                                                 ])
                                   }
+                                ,{<<"Custom-Channel-Vars">>, kapps_call:custom_channel_vars(Call)}
                                  ]),
-    SIPHeaders = props:filter_undefined([{<<"X-Conf-Flags-Moderator">>, kapps_conference:moderator(Conference)}
-                                         | name_pronounced_headers(Name)
-                                        ]),
+    IsModerator = kapps_conference:moderator(Conference),
+    ConfSIPHeaders = [{<<"X-Conf-Flags-Moderator">>, IsModerator} | name_pronounced_headers(Name)],
+    SIPHeaders = props:filter_undefined(ConfSIPHeaders ++ bridge_auth_headers(Conference, Call)),
     Command = [{<<"Application-Name">>, <<"bridge">>}
               ,{<<"Endpoints">>, [Endpoint]}
               ,{<<"Timeout">>, 20}
@@ -508,6 +508,19 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
               ],
     kapps_call_command:send_command(Command, Call).
+
+%% this will be moved to kz_call_auth module
+-spec bridge_auth_headers(kapps_conference:conference(), kapps_call:call()) -> kz_term:proplist().
+bridge_auth_headers(_Conference, Call) ->
+    kz_json:foldl(fun bridge_auth_header/3, [], kapps_call:custom_sip_headers(Call)).
+
+-spec bridge_auth_header(kz_term:ne_binary(), kz_json:json_term(), kz_term:proplist()) -> kz_term:proplist().
+bridge_auth_header(<<"X-AUTH-Token">>, Value, Acc) ->
+    [{<<"X-FS-Auth-Token">>, Value} | Acc];
+bridge_auth_header(<<"X-AUTH-", _/binary>> = Key, Value, Acc) ->
+    [{Key, Value} | Acc];
+bridge_auth_header(_Key, _Value, Acc) ->
+    Acc.
 
 -spec unbridge_from_conference(kapps_call:call()) -> 'ok'.
 unbridge_from_conference(Call) ->
