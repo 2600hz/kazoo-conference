@@ -173,6 +173,7 @@ add_conference_params(Conference, Profile) ->
               ,{<<"caller-controls">>, kapps_conference:caller_controls(Conference)}
               ,{<<"moderator-controls">>, kapps_conference:moderator_controls(Conference)}
               ,{<<"domain">>, kapps_conference:domain(Conference)}
+              ,{<<"extra-settings">>, kapps_conference:extra_settings(Conference)}
               ]),
     kz_json:set_values(Props, Profile).
 
