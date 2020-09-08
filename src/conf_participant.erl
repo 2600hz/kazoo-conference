@@ -297,7 +297,7 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
     Route = binary:replace(kz_json:get_value(<<"Switch-URL">>, JObj)
                           ,<<"mod_sofia">>
                           ,<<"conference">>
-                          %%,kapps_call:request_user(Call)
+                               %%,kapps_call:request_user(Call)
                           ),
     bridge_to_conference(Route, Conference, Call, Name),
     {'noreply', Participant#participant{remote='true'}};
@@ -381,7 +381,7 @@ handle_channel_pivot(JObj, Call) ->
 
             Req = [{<<"Flow">>, kz_json:decode(FlowBin)}
                   ,{<<"Call">>, kapps_call:to_json(Call)}
-                   | kz_api:default_headers(?APP_NAME, ?APP_VERSION)
+                  | kz_api:default_headers(?APP_NAME, ?APP_VERSION)
                   ],
             _ = kz_amqp_worker:cast(Req, fun kapi_callflow:publish_resume/1),
             lager:info("stopping the conf participant"),
@@ -476,7 +476,7 @@ notify_requestor(MyQ, MyId, DiscoveryEvent, ConferenceId) ->
         RequestorQ ->
             Resp = [{<<"Conference-ID">>, ConferenceId}
                    ,{<<"Participant-ID">>, MyId}
-                    | kz_api:default_headers(MyQ, ?APP_NAME, ?APP_VERSION)
+                   | kz_api:default_headers(MyQ, ?APP_NAME, ?APP_VERSION)
                    ],
             Publisher = fun(P) -> kapi_conference:publish_discovery_resp(RequestorQ, P) end,
             kz_amqp_worker:cast(Resp, Publisher)
@@ -548,7 +548,7 @@ send_conference_command(Conference, Call) ->
                                  ,is_muted(Conference)
                                  ,is_deaf(Conference)
                                  ,true
-                                 %,kapps_conference:moderator(Conference)
+                                                %,kapps_conference:moderator(Conference)
                                  ,get_profile_name(Conference)
                                  ,Call
                                  ).
