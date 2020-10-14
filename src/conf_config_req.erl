@@ -79,7 +79,7 @@ handle_profile_request(JObj, Conference) ->
     lager:debug("~s", [kz_json:encode(kz_json:from_list(Resp))]),
     kapi_conference:publish_config_resp(ServerId, props:filter_undefined(Resp)).
 
--spec lookup_profile(kz_term:ne_binary(), kapps_conference:conferece()) -> kz_json:object().
+-spec lookup_profile(kz_term:ne_binary(), kapps_conference:conference()) -> kz_json:object().
 lookup_profile(ProfileName, Conference) ->
     lager:info("looking up profile ~s", [ProfileName]),
     case kz_cache:peek_local(?CACHE_NAME, {'profile', ProfileName}) of
@@ -91,7 +91,7 @@ lookup_profile(ProfileName, Conference) ->
             Profile
     end.
 
--spec build_profile(kapps_conference:conferece()) -> kz_json:object().
+-spec build_profile(kapps_conference:conference()) -> kz_json:object().
 build_profile(Conference) ->
     {_Name, Profile} = kapps_conference:profile(Conference),
     lager:info("built profile ~s: ~p", [_Name, Profile]),
