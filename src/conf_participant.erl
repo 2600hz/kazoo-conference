@@ -226,7 +226,10 @@ handle_call(_Request, _, P) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec handle_cast(any(), participant()) -> kz_types:handle_cast_ret_state(participant()).
-handle_cast('hungup', Participant) ->
+handle_cast('hungup', #participant{call=Call}=Participant) ->
+    %% TODO
+    %% return to callflow
+    kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'hungup'}, Participant};
 handle_cast('pivoted', Participant) ->
     {'stop', 'normal', Participant};
@@ -297,7 +300,6 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
     Route = binary:replace(kz_json:get_value(<<"Switch-URL">>, JObj)
                           ,<<"mod_sofia">>
                           ,<<"conference">>
-                               %%,kapps_call:request_user(Call)
                           ),
     bridge_to_conference(Route, Conference, Call, Name),
     {'noreply', Participant#participant{remote='true'}};
@@ -547,8 +549,7 @@ send_conference_command(Conference, Call) ->
     kapps_call_command:conference(kapps_conference:id(Conference)
                                  ,is_muted(Conference)
                                  ,is_deaf(Conference)
-                                 ,true
-                                                %,kapps_conference:moderator(Conference)
+                                 ,kapps_conference:moderator(Conference)
                                  ,get_profile_name(Conference)
                                  ,Call
                                  ).
