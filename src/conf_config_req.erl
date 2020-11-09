@@ -172,6 +172,7 @@ add_conference_params(Conference, Profile) ->
               ,{<<"max-members-sound">>, max_members_sound(Conference)}
               ,{<<"caller-controls">>, kapps_conference:caller_controls(Conference)}
               ,{<<"moderator-controls">>, kapps_conference:moderator_controls(Conference)}
+              ,{<<"member-flags">>, member_flags(Conference)}
               ,{<<"domain">>, kapps_conference:domain(Conference)}
               ,{<<"extra-settings">>, kapps_conference:extra_settings(Conference)}
               ]),
@@ -271,3 +272,13 @@ conference_controls(Conference) ->
                                ,kapps_conference:moderator_controls(Conference)
                                ]),
     kz_json:from_list([{Name, kapps_conference:controls(Conference, Name)} || Name <- ControlNames]).
+
+member_flags(Conference) ->
+    IsMuted = kapps_conference:member_join_muted(Conference),
+    IsDeaf = kapps_conference:member_join_deaf(Conference),
+    member_flags(IsMuted, IsDeaf).
+
+member_flags(false, false) -> undefined;
+member_flags(true, true) -> <<"mute|deaf">>;
+member_flags(true, false) -> <<"mute">>;
+member_flags(false, true) -> <<"deaf">>.
