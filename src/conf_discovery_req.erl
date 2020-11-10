@@ -30,7 +30,7 @@ handle_req(DiscoveryReq, _Options) ->
         _Else -> discovery_failed(Call, 'undefined')
     end.
 
--spec create_conference(kapi_conference:discover_req(), kapps_call:call()) -> kapps_conference:conference().
+-spec create_conference(kapi_conference:discovery_req(), kapps_call:call()) -> kapps_conference:conference().
 create_conference(DiscoveryReq, Call) ->
     create_conference(DiscoveryReq, Call, kz_json:get_ne_binary_value(<<"Conference-ID">>, DiscoveryReq)).
 
