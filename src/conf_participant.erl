@@ -30,7 +30,6 @@
 -export([mute/1, unmute/1, toggle_mute/1]).
 -export([deaf/1, undeaf/1, toggle_deaf/1]).
 -export([hangup/1]).
--export([dtmf/2]).
 -export([state/1]).
 
 -export([handle_conference_event/2]).
@@ -74,7 +73,6 @@
                      ,join_attempts = 0 :: non_neg_integer()
                      ,conference :: kapps_conference:conference() | 'undefined'
                      ,discovery_event = kz_json:new() :: kz_json:object()
-                     ,last_dtmf = <<>> :: binary()
                      ,remote = 'false' :: boolean()
                      ,name_pronounced :: conf_pronounced_name:name_pronounced()
                      }).
@@ -149,9 +147,6 @@ toggle_deaf(Srv) -> gen_listener:cast(Srv, 'toggle_deaf').
 -spec hangup(pid()) -> 'ok'.
 hangup(Srv) -> gen_listener:cast(Srv, 'hangup').
 
--spec dtmf(pid(), kz_term:ne_binary()) -> 'ok'.
-dtmf(Srv, Digit) -> gen_listener:cast(Srv,{'dtmf', Digit}).
-
 -spec consume_call_events(pid()) -> 'ok'.
 consume_call_events(Srv) -> gen_listener:cast(Srv, {'add_consumer', self()}).
 
@@ -161,13 +156,8 @@ relay_amqp(JObj, Props) ->
          || Pid <- props:get_value('call_event_consumers', Props, []),
             is_pid(Pid)
         ],
-    Digit = kz_json:get_value(<<"DTMF-Digit">>, JObj),
-    case is_binary(Digit) of
-        'false' -> 'ok';
-        'true' ->
-            Srv = props:get_value('server', Props),
-            dtmf(Srv, Digit)
-    end.
+    Srv = props:get_value('server', Props),
+    kapps_call_command:relay_event(Srv, {kz_api:event_type(JObj), JObj}).
 
 -spec handle_conference_error(kz_json:object(), kz_term:proplist()) -> 'ok'.
 handle_conference_error(JObj, Props) ->
@@ -226,7 +216,15 @@ handle_call(_Request, _, P) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec handle_cast(any(), participant()) -> kz_types:handle_cast_ret_state(participant()).
-handle_cast('hungup', Participant) ->
+handle_cast({execute_complete, <<"conference">>}, #participant{call=Call}=Participant) ->
+    %% TODO
+    %% return to callflow
+    kapps_call_command:hangup(Call),
+    {'stop', {'shutdown', 'hungup'}, Participant};
+handle_cast({complete, _}, Participant) ->
+    {'noreply', Participant};
+handle_cast('hungup', #participant{call=Call}=Participant) ->
+    kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'hungup'}, Participant};
 handle_cast('pivoted', Participant) ->
     {'stop', 'normal', Participant};
@@ -297,7 +295,6 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
     Route = binary:replace(kz_json:get_value(<<"Switch-URL">>, JObj)
                           ,<<"mod_sofia">>
                           ,<<"conference">>
-                               %%,kapps_call:request_user(Call)
                           ),
     bridge_to_conference(Route, Conference, Call, Name),
     {'noreply', Participant#participant{remote='true'}};
@@ -334,8 +331,13 @@ handle_info({'hungup', CallId}, #participant{call=Call}=Participant) ->
             lager:debug("recv hungup for old call id ~s, ignoring", [CallId]),
             {'noreply', Participant}
     end;
+handle_info({amqp_msg, {{<<"call_event">>, <<"CHANNEL_EXECUTE_COMPLETE">>}, JObj}}, Participant) ->
+    gen_listener:cast(self(), {execute_complete, kz_call_event:application_name(JObj)}),
+    {'noreply', Participant};
+handle_info({amqp_msg, _}, Participant) ->
+    {'noreply', Participant};
 handle_info(_Msg, Participant) ->
-    lager:debug("unhandled message ~p", [_Msg]),
+    lager:debug_unsafe("unhandled message ~p", [_Msg]),
     {'noreply', Participant}.
 
 %%------------------------------------------------------------------------------
@@ -434,8 +436,8 @@ log_conference_join('false'=_Moderator, ParticipantId, Conference) ->
 -spec sync_participant(kz_term:ne_binary(), kz_json:objects(), kapps_call:call(), participant()) -> participant().
 sync_participant(<<"add-member">>, JObj, Call, Participant) ->
     sync_participant(JObj, Call, Participant);
-sync_participant(<<"conference-destroyed">>, _JObj, _Call, Participant) -> Participant;
-sync_participant(_Event, _JObj, _Call, Participant) -> Participant.
+sync_participant(_Event, _JObj, _Call, Participant) ->
+    Participant.
 
 -spec sync_participant(kz_json:objects(), kapps_call:call(), participant()) ->
           participant().
@@ -547,8 +549,7 @@ send_conference_command(Conference, Call) ->
     kapps_call_command:conference(kapps_conference:id(Conference)
                                  ,is_muted(Conference)
                                  ,is_deaf(Conference)
-                                 ,true
-                                                %,kapps_conference:moderator(Conference)
+                                 ,kapps_conference:moderator(Conference)
                                  ,get_profile_name(Conference)
                                  ,Call
                                  ).
