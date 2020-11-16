@@ -130,40 +130,8 @@ fix_profile(Conference, Profile) ->
     Routines = [fun add_conference_params/2
                ,fun fix_entry_tones/2
                ,fun fix_exit_tones/2
-               ,fun update_prompts/2
                ],
     lists:foldl(fun(F, P) -> F(Conference, P) end, Profile, Routines).
-
--spec update_prompts(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
-update_prompts(Conference, Profile) ->
-    {_, UpdatedProfile} = kz_json:foldl(fun update_prompt/3, {Conference, Profile}, Profile),
-    UpdatedProfile.
-
--type update_acc() :: {kapps_conference:conference(), kz_json:object()}.
--spec update_prompt(kz_json:key(), kz_json:json_string(), update_acc()) -> update_acc().
-update_prompt(Key, Value, Acc) ->
-    update_prompt(kz_binary:reverse(Key), Key, Value, Acc).
-
--spec update_prompt(kz_json:key(), kz_json:key(), kz_json:json_string(), update_acc()) -> update_acc().
-update_prompt(<<"dnuos-", _/binary>>, _Key, <<>>, Acc) -> Acc;
-update_prompt(<<"dnuos-", _/binary>>, _Key, <<"tone_stream://", _/binary>>, Acc) -> Acc;
-update_prompt(<<"dnuos-", _/binary>>, _Key, <<"silence_stream://", _/binary>>, Acc) -> Acc;
-update_prompt(<<"dnuos-", _/binary>>, _Key, <<"$${", _/binary>>, Acc) -> Acc;
-update_prompt(<<"dnuos-", _/binary>>, Key, PromptId, {Conference, Profile}) ->
-    AccountId = prompt_account_id(Conference),
-    Language = kapps_conference:language(Conference),
-    PromptUrl = kz_media_util:get_prompt(PromptId, Language, AccountId),
-
-    lager:debug("updating conference sound ~s to use ~s(~s)", [Key, PromptId, PromptUrl]),
-    {Conference, kz_json:set_value(Key, PromptUrl, Profile)};
-update_prompt(_Yek, _Key, _value, Acc) -> Acc.
-
--spec prompt_account_id(kapps_conference:conference()) -> kz_term:ne_binary().
-prompt_account_id(Conference) ->
-    case kapps_conference:account_id(Conference) of
-        'undefined' -> ?KZ_MEDIA_DB;
-        AccountId -> AccountId
-    end.
 
 -spec add_conference_params(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
 add_conference_params(Conference, Profile) ->
