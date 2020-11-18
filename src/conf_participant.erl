@@ -216,13 +216,12 @@ handle_call(_Request, _, P) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec handle_cast(any(), participant()) -> kz_types:handle_cast_ret_state(participant()).
-handle_cast({execute_complete, <<"conference">>}, #participant{call=Call}=Participant) ->
-    %% TODO
-    %% return to callflow
+handle_cast({execute_complete, <<"conference">>}, #participant{call = Call} = Participant) ->
     kapps_call_command:hangup(Call),
-    {'stop', {'shutdown', 'hungup'}, Participant};
-handle_cast({complete, _}, Participant) ->
-    {'noreply', Participant};
+    {'stop', {'shutdown', 'complete'}, Participant};
+handle_cast({execute_complete, <<"bridge">>}, #participant{call = Call} = Participant) ->
+    kapps_call_command:hangup(Call),
+    {'stop', {'shutdown', 'complete'}, Participant};
 handle_cast('hungup', #participant{call=Call}=Participant) ->
     kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'hungup'}, Participant};
