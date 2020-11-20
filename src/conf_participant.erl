@@ -216,13 +216,12 @@ handle_call(_Request, _, P) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec handle_cast(any(), participant()) -> kz_types:handle_cast_ret_state(participant()).
-handle_cast({execute_complete, <<"conference">>}, #participant{call=Call}=Participant) ->
-    %% TODO
-    %% return to callflow
+handle_cast({execute_complete, <<"conference">>}, #participant{call = Call} = Participant) ->
     kapps_call_command:hangup(Call),
-    {'stop', {'shutdown', 'hungup'}, Participant};
-handle_cast({complete, _}, Participant) ->
-    {'noreply', Participant};
+    {'stop', {'shutdown', 'complete'}, Participant};
+handle_cast({execute_complete, <<"bridge">>}, #participant{call = Call} = Participant) ->
+    kapps_call_command:hangup(Call),
+    {'stop', {'shutdown', 'complete'}, Participant};
 handle_cast('hungup', #participant{call=Call}=Participant) ->
     kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'hungup'}, Participant};
@@ -578,12 +577,12 @@ set_enter_exit_sounds({_, AccountId, MediaId}, #participant{conference=Conferenc
                                                            ,moderator=IsModerator
                                                            }) ->
     EntrySounds = [play_entry_tone(IsModerator, Conference)
-                  ,kz_media_util:media_path(MediaId, AccountId)
+                  ,kapps_prompt:get_prompt(AccountId, MediaId)
                   ,kapps_call:get_prompt(Call, <<"conf-has_joined">>)
                   ],
 
     ExitSounds = [play_exit_tone(IsModerator, Conference)
-                 ,kz_media_util:media_path(MediaId, AccountId)
+                 ,kapps_prompt:get_prompt(AccountId, MediaId)
                  ,kapps_call:get_prompt(Call, <<"conf-has_left">>)
                  ],
 
@@ -606,7 +605,7 @@ play_exit_tone('true', Conference) ->
 play_exit_tone_media(Tone, Conference) ->
     case kapps_conference:play_exit_tone(Conference) of
         'false' -> 'undefined';
-        MediaId = ?NE_BINARY -> kz_media_util:media_path(MediaId, kapps_conference:account_id(Conference));
+        MediaId = ?NE_BINARY -> kapps_prompt:get_prompt(kapps_conference:account_id(Conference), MediaId);
         _Else -> Tone
     end.
 
@@ -620,7 +619,7 @@ play_entry_tone('true', Conference) ->
 play_entry_tone_media(Tone, Conference) ->
     case kapps_conference:play_entry_tone(Conference) of
         'false' -> 'false';
-        MediaId = ?NE_BINARY -> kz_media_util:media_path(MediaId, kapps_conference:account_id(Conference));
+        MediaId = ?NE_BINARY -> kapps_prompt:get_prompt(kapps_conference:account_id(Conference), MediaId);
         _Else -> Tone
     end.
 

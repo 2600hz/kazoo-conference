@@ -102,7 +102,7 @@ welcome_to_conference(Srv, Conference) ->
                 kapps_call_command:prompt(<<"conf-welcome">>, Call);
             Media ->
                 lager:debug("playing welcome media from discovery: ~s", [Media]),
-                kapps_call_command:play(kz_media_util:media_path(Media, kapps_call:account_id(Call)), Call)
+                kapps_call_command:play(kapps_call:get_prompt(Call, Media), Call)
         end,
     maybe_collect_conference_id(Srv, Conference).
 
@@ -113,8 +113,7 @@ maybe_collect_conference_id(Srv, Conference) ->
         _Else -> valid_conference_id(Srv, Conference, <<"none">>)
     end.
 
--spec collect_conference_id(pid(), kapps_conference:conference()) ->
-          'ok'.
+-spec collect_conference_id(pid(), kapps_conference:conference()) -> 'ok'.
 collect_conference_id(Srv, Conference) ->
     collect_conference_id(Srv, Conference, 1).
 
