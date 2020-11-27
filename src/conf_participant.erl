@@ -295,6 +295,7 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
                           ,<<"mod_sofia">>
                           ,<<"conference">>
                           ),
+    _ = maybe_set_interaction_id(Call, JObj),
     bridge_to_conference(Route, Conference, Call, Name),
     {'noreply', Participant#participant{remote='true'}};
 handle_cast({'sync_participant', JObj}, #participant{call=Call}=Participant) ->
@@ -482,6 +483,21 @@ notify_requestor(MyQ, MyId, DiscoveryEvent, ConferenceId) ->
             Publisher = fun(P) -> kapi_conference:publish_discovery_resp(RequestorQ, P) end,
             kz_amqp_worker:cast(Resp, Publisher)
     end.
+
+-spec should_process_interaction() -> boolean().
+should_process_interaction() ->
+    kapps_config:get_boolean(?INTERACTION_CAT, <<"process_conference">>, true).
+
+-spec maybe_set_interaction_id(kapps_call:call(), kz_json:object()) -> any().
+maybe_set_interaction_id(Call, JObj) ->
+    InteractionId = kzd_interaction:id(JObj),
+    maybe_set_interaction_id(Call, InteractionId, should_process_interaction()).
+
+maybe_set_interaction_id(_Call, _InteractionId, false) -> ok;
+maybe_set_interaction_id(_Call, undefined, true) -> ok;
+maybe_set_interaction_id(Call, InteractionId, true) ->
+    ChannelVars = kz_json:from_list([{<<?CALL_INTERACTION_ID>>, InteractionId}]),
+    kapps_call_command:set(ChannelVars, kz_json:new(), Call).
 
 -spec bridge_to_conference(kz_term:ne_binary(), kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) -> 'ok'.
 bridge_to_conference(Route, Conference, Call, Name) ->
