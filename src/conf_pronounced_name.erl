@@ -135,7 +135,7 @@ save_recording(RecordName, MediaDocId, Call) ->
     UserId = get_user_id(Call),
     AccountDb = kapps_call:account_db(Call),
     AccountId = kapps_call:account_id(Call),
-    _ = kapps_call_command:b_store(RecordName, get_new_attachment_url(RecordName, MediaDocId, Call), Call),
+    _ = kapps_call_command:store_file(<<"/tmp/", RecordName/binary>>, get_new_attachment_url(RecordName, MediaDocId, Call), Call),
     case kz_datamgr:open_cache_doc(AccountDb, UserId) of
         {'ok', UserJObj} ->
             lager:debug("updating user's doc"),
