@@ -514,7 +514,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"Outbound-Caller-ID-Name">>, kapps_call:caller_id_name(Call)}
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
                                  ,{<<"To-URI">>, ConferenceURI}
-                                 ,{<<"Custom-Channel-Vars">>, kapps_call:custom_channel_vars(Call)}
+                                 ,{<<"Custom-Channel-Vars">>, remote_ccvs(Call)}
                                  ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
@@ -525,6 +525,11 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ,{<<"Hold-Media">>, <<"silence">>}
               ],
     kapps_call_command:send_command(Command, Call).
+
+-spec remote_ccvs(kapps_call:call()) -> kz_json:object().
+remote_ccvs(Call) ->
+    CCVs = kapps_call:custom_channel_vars(Call),
+    kz_json:set_value(<<"Authorizing-ID">>, kapps_call:account_id(Call), CCVs).
 
 %% this will be moved to kz_call_auth module
 -spec bridge_auth_headers(kapps_conference:conference(), kapps_call:call()) -> kz_term:proplist().
