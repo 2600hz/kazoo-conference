@@ -494,8 +494,8 @@ maybe_set_interaction_id(Call, JObj) ->
     InteractionId = kzd_interaction:id(JObj),
     maybe_set_interaction_id(Call, InteractionId, should_process_interaction()).
 
-maybe_set_interaction_id(_Call, _InteractionId, false) -> ok;
-maybe_set_interaction_id(_Call, undefined, true) -> ok;
+maybe_set_interaction_id(_Call, _InteractionId, 'false') -> 'ok';
+maybe_set_interaction_id(_Call, 'undefined', 'true') -> 'ok';
 maybe_set_interaction_id(Call, InteractionId, true) ->
     ChannelVars = kz_json:from_list([{<<?CALL_INTERACTION_ID>>, InteractionId}]),
     kapps_call_command:set(ChannelVars, kz_json:new(), Call).
@@ -504,9 +504,22 @@ maybe_set_interaction_id(Call, InteractionId, true) ->
 bridge_to_conference(Route, Conference, Call, Name) ->
     lager:debug("bridging to conference running at '~s'", [Route]),
     IsModerator = kapps_conference:moderator(Conference),
-    ConfSIPHeaders = [{<<"X-Conf-Flags-Moderator">>, IsModerator} | name_pronounced_headers(Name)],
-    SIPHeaders = props:filter_undefined(ConfSIPHeaders ++ bridge_auth_headers(Conference, Call)),
+
     AccountRealm = get_account_realm(Call),
+    AccountId = kapps_call:account_id(Call),
+    FSAuthToken = list_to_binary([kapps_conference:inter_conference_extension()
+                                 ,"@"
+                                 ,AccountId
+                                 ]),
+
+    ConfSIPHeaders = [{<<"X-Conf-Flags-Moderator">>, IsModerator}
+                     ,{<<"X-FS-Auth-Token">>, FSAuthToken}
+                     | name_pronounced_headers(Name)
+                     ],
+    SIPHeaders = props:filter_undefined(
+                   props:set_values(ConfSIPHeaders, bridge_auth_headers(Conference, Call))
+                  ),
+
     ConferenceId = kapps_conference:id(Conference),
     ConferenceURI = list_to_binary(["sip:", ConferenceId, "@", AccountRealm]),
     Endpoint = kz_json:from_list([{<<"Invite-Format">>, <<"route">>}
@@ -533,8 +546,7 @@ bridge_auth_headers(_Conference, Call) ->
     kz_json:foldl(fun bridge_auth_header/3, [], kapps_call:custom_sip_headers(Call)).
 
 -spec bridge_auth_header(kz_term:ne_binary(), kz_json:json_term(), kz_term:proplist()) -> kz_term:proplist().
-bridge_auth_header(<<"X-AUTH-Token">>, Value, Acc) ->
-    [{<<"X-FS-Auth-Token">>, Value} | Acc];
+bridge_auth_header(<<"X-AUTH-Token">>, _Value, Acc) -> Acc;
 bridge_auth_header(<<"X-AUTH-IP">>, _Value, Acc) -> Acc;
 bridge_auth_header(<<"X-AUTH-PORT">>, _Value, Acc) -> Acc;
 bridge_auth_header(<<"X-AUTH-", _/binary>> = Key, Value, Acc) ->
