@@ -216,10 +216,10 @@ handle_call(_Request, _, P) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec handle_cast(any(), participant()) -> kz_types:handle_cast_ret_state(participant()).
-handle_cast({execute_complete, <<"conference">>}, #participant{call = Call} = Participant) ->
+handle_cast({'execute_complete', <<"conference">>}, #participant{call = Call} = Participant) ->
     kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'complete'}, Participant};
-handle_cast({execute_complete, <<"bridge">>}, #participant{call = Call} = Participant) ->
+handle_cast({'execute_complete', <<"bridge">>}, #participant{call = Call} = Participant) ->
     kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'complete'}, Participant};
 handle_cast('hungup', #participant{call=Call}=Participant) ->
@@ -236,9 +236,10 @@ handle_cast({'channel_replaced', NewCallId}
     gen_listener:add_binding(self(), 'call', [{'callid', NewCallId}]),
     {'noreply', Participant#participant{call=NewCall}};
 
-handle_cast({'gen_listener', {'created_queue', Q}}, #participant{conference='undefined'
-                                                                ,call=Call
-                                                                }=P) ->
+handle_cast({'gen_listener', {'created_queue', Q}}
+           ,#participant{conference='undefined'
+                        ,call=Call
+                        }=P) ->
     lager:debug("participant queue created ~s", [Q]),
     {'noreply', P#participant{call=kapps_call:set_controller_queue(Q, Call)}};
 handle_cast({'gen_listener', {'created_queue', Q}}, #participant{conference=Conference
@@ -293,7 +294,7 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
     lager:debug("sending command for participant to join remote conference ~s", [kapps_conference:id(Conference)]),
     Route = binary:replace(kz_json:get_value(<<"Switch-URL">>, JObj)
                           ,<<"mod_sofia">>
-                          ,<<"conference">>
+                          ,kapps_conference:inter_conference_extension()
                           ),
     _ = maybe_set_interaction_id(Call, JObj),
     bridge_to_conference(Route, Conference, Call, Name),
@@ -486,7 +487,7 @@ notify_requestor(MyQ, MyId, DiscoveryEvent, ConferenceId) ->
 
 -spec should_process_interaction() -> boolean().
 should_process_interaction() ->
-    kapps_config:get_boolean(?INTERACTION_CAT, <<"process_conference">>, true).
+    kapps_config:get_boolean(?INTERACTION_CAT, <<"process_conference">>, 'true').
 
 -spec maybe_set_interaction_id(kapps_call:call(), kz_json:object()) -> any().
 maybe_set_interaction_id(Call, JObj) ->
