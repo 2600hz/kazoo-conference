@@ -216,10 +216,10 @@ handle_call(_Request, _, P) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec handle_cast(any(), participant()) -> kz_types:handle_cast_ret_state(participant()).
-handle_cast({execute_complete, <<"conference">>}, #participant{call = Call} = Participant) ->
+handle_cast({'execute_complete', <<"conference">>}, #participant{call = Call} = Participant) ->
     kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'complete'}, Participant};
-handle_cast({execute_complete, <<"bridge">>}, #participant{call = Call} = Participant) ->
+handle_cast({'execute_complete', <<"bridge">>}, #participant{call = Call} = Participant) ->
     kapps_call_command:hangup(Call),
     {'stop', {'shutdown', 'complete'}, Participant};
 handle_cast('hungup', #participant{call=Call}=Participant) ->
@@ -236,9 +236,10 @@ handle_cast({'channel_replaced', NewCallId}
     gen_listener:add_binding(self(), 'call', [{'callid', NewCallId}]),
     {'noreply', Participant#participant{call=NewCall}};
 
-handle_cast({'gen_listener', {'created_queue', Q}}, #participant{conference='undefined'
-                                                                ,call=Call
-                                                                }=P) ->
+handle_cast({'gen_listener', {'created_queue', Q}}
+           ,#participant{conference='undefined'
+                        ,call=Call
+                        }=P) ->
     lager:debug("participant queue created ~s", [Q]),
     {'noreply', P#participant{call=kapps_call:set_controller_queue(Q, Call)}};
 handle_cast({'gen_listener', {'created_queue', Q}}, #participant{conference=Conference
@@ -293,7 +294,7 @@ handle_cast({'join_remote', JObj}, #participant{call=Call
     lager:debug("sending command for participant to join remote conference ~s", [kapps_conference:id(Conference)]),
     Route = binary:replace(kz_json:get_value(<<"Switch-URL">>, JObj)
                           ,<<"mod_sofia">>
-                          ,<<"conference">>
+                          ,kapps_conference:inter_conference_extension()
                           ),
     _ = maybe_set_interaction_id(Call, JObj),
     bridge_to_conference(Route, Conference, Call, Name),
@@ -331,10 +332,10 @@ handle_info({'hungup', CallId}, #participant{call=Call}=Participant) ->
             lager:debug("recv hungup for old call id ~s, ignoring", [CallId]),
             {'noreply', Participant}
     end;
-handle_info({amqp_msg, {{<<"call_event">>, <<"CHANNEL_EXECUTE_COMPLETE">>}, JObj}}, Participant) ->
-    gen_listener:cast(self(), {execute_complete, kz_call_event:application_name(JObj)}),
+handle_info({'amqp_msg', {{<<"call_event">>, <<"CHANNEL_EXECUTE_COMPLETE">>}, JObj}}, Participant) ->
+    gen_listener:cast(self(), {'execute_complete', kz_call_event:application_name(JObj)}),
     {'noreply', Participant};
-handle_info({amqp_msg, _}, Participant) ->
+handle_info({'amqp_msg', _}, Participant) ->
     {'noreply', Participant};
 handle_info(_Msg, Participant) ->
     lager:debug_unsafe("unhandled message ~p", [_Msg]),
@@ -486,16 +487,16 @@ notify_requestor(MyQ, MyId, DiscoveryEvent, ConferenceId) ->
 
 -spec should_process_interaction() -> boolean().
 should_process_interaction() ->
-    kapps_config:get_boolean(?INTERACTION_CAT, <<"process_conference">>, true).
+    kapps_config:get_boolean(?INTERACTION_CAT, <<"process_conference">>, 'true').
 
 -spec maybe_set_interaction_id(kapps_call:call(), kz_json:object()) -> any().
 maybe_set_interaction_id(Call, JObj) ->
     InteractionId = kzd_interaction:id(JObj),
     maybe_set_interaction_id(Call, InteractionId, should_process_interaction()).
 
-maybe_set_interaction_id(_Call, _InteractionId, false) -> ok;
-maybe_set_interaction_id(_Call, undefined, true) -> ok;
-maybe_set_interaction_id(Call, InteractionId, true) ->
+maybe_set_interaction_id(_Call, _InteractionId, 'false') -> 'ok';
+maybe_set_interaction_id(_Call, 'undefined', 'true') -> 'ok';
+maybe_set_interaction_id(Call, InteractionId, 'true') ->
     ChannelVars = kz_json:from_list([{<<?CALL_INTERACTION_ID>>, InteractionId}]),
     kapps_call_command:set(ChannelVars, kz_json:new(), Call).
 
@@ -503,9 +504,16 @@ maybe_set_interaction_id(Call, InteractionId, true) ->
 bridge_to_conference(Route, Conference, Call, Name) ->
     lager:debug("bridging to conference running at '~s'", [Route]),
     IsModerator = kapps_conference:moderator(Conference),
-    ConfSIPHeaders = [{<<"X-Conf-Flags-Moderator">>, IsModerator} | name_pronounced_headers(Name)],
-    SIPHeaders = props:filter_undefined(ConfSIPHeaders ++ bridge_auth_headers(Conference, Call)),
+
     AccountRealm = get_account_realm(Call),
+
+    ConfSIPHeaders = [{<<"X-Conf-Flags-Moderator">>, IsModerator}
+                     | name_pronounced_headers(Name)
+                     ],
+    SIPHeaders = props:filter_undefined(
+                   props:set_values(ConfSIPHeaders, bridge_auth_headers(Conference, Call))
+                  ),
+
     ConferenceId = kapps_conference:id(Conference),
     ConferenceURI = list_to_binary(["sip:", ConferenceId, "@", AccountRealm]),
     Endpoint = kz_json:from_list([{<<"Invite-Format">>, <<"route">>}
@@ -514,7 +522,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"Outbound-Caller-ID-Name">>, kapps_call:caller_id_name(Call)}
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
                                  ,{<<"To-URI">>, ConferenceURI}
-                                 ,{<<"Custom-Channel-Vars">>, kapps_call:custom_channel_vars(Call)}
+                                 ,{<<"Custom-Channel-Vars">>, remote_ccvs(Call)}
                                  ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
@@ -525,6 +533,31 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ,{<<"Hold-Media">>, <<"silence">>}
               ],
     kapps_call_command:send_command(Command, Call).
+
+-spec remote_ccvs(kapps_call:call()) -> kz_json:object().
+remote_ccvs(Call) ->
+    remote_ccvs(Call, kapps_call:authorizing_id(Call), kapps_call:account_id(Call)).
+
+-spec remote_ccvs(kapps_call:call(), kz_term:api_ne_binary(), kz_term:ne_binary()) ->
+          kz_json:object().
+remote_ccvs(Call, 'undefined', _AccountId) ->
+    kapps_call:custom_channel_vars(Call);
+remote_ccvs(Call, EndpointId, AccountId) ->
+    remote_ccvs(Call, kz_directory_endpoint:profile(EndpointId, AccountId)).
+
+-spec remote_ccvs(kapps_call:call(), {'ok', kz_json:object()} | {'error', any()}) ->
+          kz_json:object().
+remote_ccvs(Call, {'ok', Endpoint}) ->
+    EndpointCCVs = kz_json:get_json_value(<<"Custom-Channel-Vars">>, Endpoint, kz_json:new()),
+    CallCCVs = kapps_call:custom_channel_vars(Call),
+
+    EPMinusInvite = kz_json:delete_keys([<<"SIP-Invite-Request-URI">>, <<"SIP-Invite-To-URI">>]
+                                       ,EndpointCCVs
+                                       ),
+
+    kz_json:set_values(kz_json:to_proplist(CallCCVs), EPMinusInvite);
+remote_ccvs(Call, _) ->
+    kapps_call:custom_channel_vars(Call).
 
 %% this will be moved to kz_call_auth module
 -spec bridge_auth_headers(kapps_conference:conference(), kapps_call:call()) -> kz_term:proplist().
