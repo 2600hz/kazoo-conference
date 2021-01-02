@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2010-2020, 2600Hz
+%%% @copyright (C) 2010-2021, 2600Hz
 %%% @doc
 %%% @author SIPLABS, LLC (Maksim Krzhemenevskiy)
 %%%
@@ -57,7 +57,7 @@ lookup_user_name(Call, UserId) ->
         {'ok', UserDoc} ->
             case kz_json:get_value(?PRONOUNCED_NAME_KEY, UserDoc) of
                 'undefined' -> 'undefined';
-                DocId -> {'media_doc_id', kapps_call:account_db(Call), DocId}
+                DocId -> {'media_doc_id', kapps_call:account_id(Call), DocId}
             end;
         _ -> 'undefined'
     end.
