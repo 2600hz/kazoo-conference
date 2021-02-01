@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2013-2020, 2600Hz
+%%% @copyright (C) 2013-2021, 2600Hz
 %%% @doc Conference participant process
 %%% @author Karl Anderson
 %%% @author James Aimonetti
@@ -150,7 +150,7 @@ hangup(Srv) -> gen_listener:cast(Srv, 'hangup').
 -spec consume_call_events(pid()) -> 'ok'.
 consume_call_events(Srv) -> gen_listener:cast(Srv, {'add_consumer', self()}).
 
--spec relay_amqp(kz_json:object(), kz_term:proplist()) -> 'ok'.
+-spec relay_amqp(kz_json:object(), kz_term:proplist()) -> any().
 relay_amqp(JObj, Props) ->
     _ = [kapps_call_command:relay_event(Pid, JObj)
          || Pid <- props:get_value('call_event_consumers', Props, []),
@@ -522,7 +522,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"Outbound-Caller-ID-Name">>, kapps_call:caller_id_name(Call)}
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
                                  ,{<<"To-URI">>, ConferenceURI}
-                                 ,{<<"Custom-Channel-Vars">>, remote_ccvs(Call)}
+                                 ,{<<"Custom-Channel-Vars">>, remote_ccvs(remove_billing_ccvs(Call))}
                                  ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
@@ -533,6 +533,13 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ,{<<"Hold-Media">>, <<"silence">>}
               ],
     kapps_call_command:send_command(Command, Call).
+
+%% @doc meant to be used only by `bridge_to_conference/4' function that way kazoo doesn't
+%%      count inter-FS legs as outbound trunks (flat_rate).
+%% @end
+-spec remove_billing_ccvs(kapps_call:call()) -> kapps_call:call().
+remove_billing_ccvs(Call) ->
+    kapps_call:remove_custom_channel_vars([<<"Reseller-Billing">>, <<"Account-Billing">>], Call).
 
 -spec remote_ccvs(kapps_call:call()) -> kz_json:object().
 remote_ccvs(Call) ->
