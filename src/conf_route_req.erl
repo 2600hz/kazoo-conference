@@ -23,10 +23,16 @@ handle_req(JObj, _Props) ->
     kz_log:put_callid(JObj),
     Call = kapps_call:from_route_req(JObj),
 
-    case kapps_call:request_user(Call) of
-        <<"conference">> ->
+    case kapps_call:request(Call) of
+        <<"conference@", _/binary>> ->
             maybe_send_route_response(JObj, Call);
-        _Else -> 'ok'
+        <<"conference+", ConfIdAtRealm/binary>> ->
+            Routines = [{fun kapps_call:set_to/2, ConfIdAtRealm}
+                       ,{fun kapps_call:set_request/2, ConfIdAtRealm}
+                       ],
+            maybe_send_route_response(JObj, kapps_call:exec(Routines, Call));
+        _Else ->
+            'ok'
     end.
 
 -spec maybe_send_route_response(kz_json:object(), kapps_call:call()) -> 'ok'.
