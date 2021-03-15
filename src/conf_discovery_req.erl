@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2020, 2600Hz
+%%% @copyright (C) 2011-2021, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -100,11 +100,18 @@ welcome_to_conference(Srv, Conference) ->
             'undefined' ->
                 lager:debug("no welcome media on discovery, using prompt"),
                 kapps_call_command:prompt(<<"conf-welcome">>, Call);
-            Media ->
+            MediaId ->
+                Media = <<"/", (kapps_call:account_id(Call))/binary, "/", MediaId/binary>>,
                 lager:debug("playing welcome media from discovery: ~s", [Media]),
-                kapps_call_command:play(kapps_call:get_prompt(Call, Media), Call)
+                play_welcome_greeting(kz_media_url:playback(Media), Call)
         end,
     maybe_collect_conference_id(Srv, Conference).
+
+-spec play_welcome_greeting(kz_term:ne_binary() | {'error', atom()}, kapps_call:call()) -> 'ok'.
+play_welcome_greeting({'error', _Err}, _Call) ->
+    lager:debug("failed to find media URL: ~p", [_Err]);
+play_welcome_greeting(<<MediaURL/binary>>, Call) ->
+    kapps_call_command:play(MediaURL, Call).
 
 -spec maybe_collect_conference_id(pid(), kapps_conference:conference()) -> 'ok'.
 maybe_collect_conference_id(Srv, Conference) ->

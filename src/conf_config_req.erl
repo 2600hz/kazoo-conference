@@ -87,18 +87,19 @@ handle_profile_request(JObj, Conference) ->
     lager:debug("~s", [kz_json:encode(kz_json:from_list(Resp))]),
     kapi_conference:publish_config_resp(ServerId, props:filter_undefined(Resp)).
 
--spec fetch_profile(kz_term:ne_binary(), kapps_conference:conference()) -> {ok, kz_json:object()} | {error, not_found}.
+-spec fetch_profile(kz_term:ne_binary(), kapps_conference:conference()) -> kz_json:object().
 fetch_profile(ProfileName, Conference) ->
     case lookup_profile(ProfileName, Conference) of
-        {ok, Profile} ->
-            Profile;
-        {error, not_found} ->
+        {'ok', Profile} -> Profile;
+        {'error', 'not_found'} ->
             Profile = build_profile(Conference, ProfileName),
             cache_profile(Conference, ProfileName, Profile),
             Profile
     end.
 
--spec lookup_profile(kz_term:ne_binary(), kapps_conference:conference()) -> {ok, kz_json:object()} | {error, not_found}.
+-spec lookup_profile(kz_term:ne_binary(), kapps_conference:conference()) ->
+          {'ok', kz_json:object()} |
+          {'error', 'not_found'}.
 lookup_profile(ProfileName, Conference) ->
     Key = {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), ProfileName},
     lager:info("looking up profile ~s", [ProfileName]),
@@ -153,8 +154,8 @@ add_name_announcement(Conference, Profile) ->
     case kapps_conference:play_name_on_join(Conference)
         andalso ?SUPPORT_NAME_ANNOUNCEMENT(kapps_conference:account_id(Conference))
     of
-        true -> kz_json:set_value([<<"conference-variables">>, <<"conference-name-announcement">>], true, Profile);
-        false -> Profile
+        'true' -> kz_json:set_value([<<"conference-variables">>, <<"conference-name-announcement">>], 'true', Profile);
+        'false' -> Profile
     end.
 
 -spec add_on_enter_extension(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
