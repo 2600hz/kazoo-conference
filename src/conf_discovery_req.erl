@@ -27,7 +27,7 @@ handle_req(DiscoveryReq, _Options) ->
             Conference = create_conference(DiscoveryReq, Call),
             conf_config_req:cache_profile(Conference),
             maybe_welcome_to_conference(Srv, Conference);
-        _Else -> discovery_failed(Call, 'undefined')
+        _Else -> discovery_failed(Call)
     end.
 
 -spec create_conference(kapi_conference:discovery_req(), kapps_call:call()) -> kapps_conference:conference().
@@ -126,17 +126,17 @@ collect_conference_id(Srv, Conference) ->
 
 -spec collect_conference_id(pid(), kapps_conference:conference(), pos_integer()) ->
           'ok'.
-collect_conference_id(Srv, Conference, Loop) when Loop > 3 ->
+collect_conference_id(_Srv, Conference, Loop) when Loop > 3 ->
     lager:debug("caller has failed to provide a valid conference number to many times"),
     Call = kapps_conference:call(Conference),
     _ = kapps_call_command:b_prompt(<<"conf-too_many_attempts">>, Call),
-    discovery_failed(Call, Srv);
+    discovery_failed(Call);
 collect_conference_id(Srv, Conference, Loop) ->
     lager:debug("requesting conference id from caller"),
     Call = kapps_conference:call(Conference),
     Timeout = get_number_timeout(Call),
     case kapps_call_command:b_prompt_and_collect_digits(1, 16, <<"conf-enter_conf_number">>, 1, Timeout, Call) of
-        {'error', _} -> discovery_failed(Call, Srv);
+        {'error', _} -> discovery_failed(Call);
         {'ok', Digits} ->
             validate_collected_conference_id(Srv, Conference, Loop, Digits)
     end.
@@ -264,7 +264,7 @@ collect_conference_pin(Type, Conference, Call, Srv) ->
         {'ok', C} ->
             prepare_kapps_conference(C, Call, Srv);
         {'error', _} ->
-            discovery_failed(Call, Srv)
+            discovery_failed(Call)
     end.
 
 -spec prepare_kapps_conference(kapps_conference:conference(), kapps_call:call(), pid()) -> 'ok'.
@@ -369,16 +369,22 @@ maybe_play_name(Conference, Call, Srv) ->
         andalso ?SUPPORT_NAME_ANNOUNCEMENT(kapps_call:account_id(Call))
     of
         'true' ->
-            PronouncedName = case conf_pronounced_name:lookup_name(Call) of
-                                 'undefined' ->
-                                     lager:debug("recording pronunciation of the name"),
-                                     conf_pronounced_name:record(Call);
-                                 Value ->
-                                     lager:debug("has pronounced name: ~p", [Value]),
-                                     Value
-                             end,
+            PronouncedName = lookup_name(Call),
             conf_participant:set_name_pronounced(PronouncedName, Srv);
         'false' -> 'ok'
+    end.
+
+-spec lookup_name(kapps_call:call()) ->
+          conf_pronounced_name:name_pronounced() |
+          conf_pronounced_name:name_pronounced_media().
+lookup_name(Call) ->
+    case conf_pronounced_name:lookup_name(Call) of
+        'undefined' ->
+            lager:debug("recording pronunciation of the name"),
+            conf_pronounced_name:record(Call);
+        Value ->
+            lager:debug("has pronounced name: ~p", [Value]),
+            Value
     end.
 
 -spec add_participant_to_conference(kz_json:object(), kapps_conference:conference(), kapps_call:call(), pid()) -> 'ok'.
@@ -398,8 +404,8 @@ add_participant_to_conference(JObj, Conference, Call, Srv) ->
             conf_participant:join_remote(Srv, JObj)
     end.
 
--spec discovery_failed(kapps_call:call(), pid() | 'undefined') -> 'ok'.
-discovery_failed(Call, _) -> kapps_call_command:hangup(Call).
+-spec discovery_failed(kapps_call:call()) -> 'ok'.
+discovery_failed(Call) -> kapps_call_command:hangup(Call).
 
 -spec validate_conference_pin(kz_term:api_boolean(), kapps_conference:conference(), kapps_call:call(), pos_integer()) ->
           {'ok', kapps_conference:conference()} |

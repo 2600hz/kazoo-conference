@@ -67,10 +67,8 @@
                      ,moderator = 'false' :: boolean()
                      ,muted = 'false' :: boolean()
                      ,deaf = 'false' :: boolean()
-                     ,waiting_for_mod = 'false' :: boolean()
                      ,call_event_consumers = [] :: kz_term:pids()
                      ,in_conference = 'false' :: boolean()
-                     ,join_attempts = 0 :: non_neg_integer()
                      ,conference :: kapps_conference:conference() | 'undefined'
                      ,discovery_event = kz_json:new() :: kz_json:object()
                      ,remote = 'false' :: boolean()
@@ -157,7 +155,7 @@ relay_amqp(JObj, Props) ->
             is_pid(Pid)
         ],
     Srv = props:get_value('server', Props),
-    kapps_call_command:relay_event(Srv, {kz_api:event_type(JObj), JObj}).
+    kapps_call_command:relay_event(Srv, JObj).
 
 -spec handle_conference_error(kz_json:object(), kz_term:proplist()) -> 'ok'.
 handle_conference_error(JObj, Props) ->
@@ -332,14 +330,16 @@ handle_info({'hungup', CallId}, #participant{call=Call}=Participant) ->
             lager:debug("recv hungup for old call id ~s, ignoring", [CallId]),
             {'noreply', Participant}
     end;
-handle_info({'amqp_msg', {{<<"call_event">>, <<"CHANNEL_EXECUTE_COMPLETE">>}, JObj}}, Participant) ->
-    gen_listener:cast(self(), {'execute_complete', kz_call_event:application_name(JObj)}),
-    {'noreply', Participant};
-handle_info({'amqp_msg', _}, Participant) ->
+handle_info({'amqp_msg', JObj}, Participant) ->
+    handle_amqp_msg(JObj, kz_api:event_type(JObj)),
     {'noreply', Participant};
 handle_info(_Msg, Participant) ->
     lager:debug_unsafe("unhandled message ~p", [_Msg]),
     {'noreply', Participant}.
+
+handle_amqp_msg(JObj, {<<"call_event">>, <<"CHANNEL_EXECUTE_COMPLETE">>}) ->
+    gen_listener:cast(self(), {'execute_complete', kz_call_event:application_name(JObj)});
+handle_amqp_msg(_JObj, _Type) -> 'ok'.
 
 %%------------------------------------------------------------------------------
 %% @doc
