@@ -172,6 +172,7 @@ valid_conference_id(Srv, Conference, Digits) ->
     MemberNumbers = kz_json:get_value([<<"member">>, <<"numbers">>], JObj, []),
     case {lists:member(Digits, MemberNumbers)
          ,lists:member(Digits, ModeratorNumbers)
+          orelse is_conference_owner(Conference)
          }
     of
         {'true', 'false'} ->
@@ -195,6 +196,11 @@ valid_conference_id(Srv, Conference, Digits) ->
             Call = kapps_conference:call(Conference2),
             maybe_collect_conference_pin(Conference2, Call, Srv)
     end.
+
+-spec is_conference_owner(kapps_conference:conference()) -> boolean().
+is_conference_owner(Conference) ->
+    kapps_call:owner_id(kapps_conference:call(Conference)) =:=
+        kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)).
 
 -spec maybe_set_conference_tones(kapps_conference:conference(), kz_json:object()) ->
           kapps_conference:conference().
