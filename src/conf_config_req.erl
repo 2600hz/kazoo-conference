@@ -136,12 +136,15 @@ chat_permissions(ProfileName, Chat) -> kz_json:from_list([{ProfileName, Chat}]).
 -spec build_profile(kapps_conference:conference(), kz_term:ne_binary()) -> kz_json:object().
 build_profile(Conference, Name) ->
     {PName, Profile} = kapps_conference:profile(kapps_conference:set_profile_name(Name, Conference)),
-    case PName of
-        Name -> 'ok';
-        _ -> lager:debug("~p profile not found, using ~p instead", [Name, PName])
-    end,
+    maybe_log_profile_change(Name, PName),
     lager:info("built profile ~s: ~p", [PName, Profile]),
     build_profile_routines(Conference, Profile).
+
+-spec maybe_log_profile_change(kz_term:ne_binary(), kz_term:ne_binary()) -> 'ok'.
+maybe_log_profile_change(Expected, Expected) ->
+    'ok';
+maybe_log_profile_change(Expected, Received) ->
+    lager:debug("~p profile not found, using ~p profile instead", [Expected, Received]).
 
 -spec build_profile_routines(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
 build_profile_routines(Conference, Profile) ->
