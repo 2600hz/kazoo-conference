@@ -135,8 +135,12 @@ chat_permissions(ProfileName, Chat) -> kz_json:from_list([{ProfileName, Chat}]).
 
 -spec build_profile(kapps_conference:conference(), kz_term:ne_binary()) -> kz_json:object().
 build_profile(Conference, Name) ->
-    {Name, Profile} = kapps_conference:profile(kapps_conference:set_profile_name(Name, Conference)),
-    lager:info("built profile ~s: ~p", [Name, Profile]),
+    {PName, Profile} = kapps_conference:profile(kapps_conference:set_profile_name(Name, Conference)),
+    case PName of
+        Name -> 'ok';
+        _ -> lager:debug("~p profile not found, using ~p instead", [Name, PName])
+    end,
+    lager:info("built profile ~s: ~p", [PName, Profile]),
     build_profile_routines(Conference, Profile).
 
 -spec build_profile_routines(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
