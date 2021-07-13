@@ -29,8 +29,7 @@ cache_profile(Conference) ->
 cache_profile(Conference, Name, Profile) ->
     lager:debug("caching profile ~s: ~p", [Name, Profile]),
     CacheProps = [{'origin', cache_origin(Conference)}],
-    Key = {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), Name},
-    kz_cache:store_local(?CACHE_NAME, Key, Profile, CacheProps).
+    kz_cache:store_local(?CACHE_NAME, cache_profile_key(Conference, Name), Profile, CacheProps).
 
 -spec cache_origin(kapps_conference:conference()) -> list().
 cache_origin(Conference) ->
@@ -42,45 +41,46 @@ cache_origin(Conference) ->
             [{'db', AccountDB, ConferenceId}]
     end.
 
--spec handle_req(kz_json:object(), kz_term:proplist()) -> 'ok'.
-handle_req(JObj, _Props) ->
-    'true' = kapi_conference:config_req_v(JObj),
-    Request = kz_json:get_ne_binary_value(<<"Request">>, JObj),
+-spec handle_req(kapi_conference:config_req(), kz_term:proplist()) -> 'ok'.
+handle_req(ConfigReq, _Props) ->
+    'true' = kapi_conference:config_req_v(ConfigReq),
+    Request = kz_json:get_ne_binary_value(<<"Request">>, ConfigReq),
     lager:debug("'~s' profile request received", [Request]),
-    handle_request(Request, JObj, create_conference(JObj)).
+    handle_request(ConfigReq, create_conference(ConfigReq), Request).
 
--spec create_conference(kz_json:object()) -> kapps_conference:conference().
-create_conference(JObj) ->
+-spec create_conference(kapi_conference:config_req()) -> kapps_conference:conference().
+create_conference(ConfigReq) ->
     Conference = kapps_conference:new(),
-    Profile = kz_json:get_ne_binary_value(<<"Profile">>, JObj),
-    AccountId = kz_json:get_ne_binary_value(<<"Account-ID">>, JObj),
-    ConferenceId = kz_json:get_ne_binary_value(<<"Conference-ID">>, JObj),
+    ProfileName = kz_json:get_ne_binary_value(<<"Profile">>, ConfigReq),
+    AccountId = kz_json:get_ne_binary_value(<<"Account-ID">>, ConfigReq),
+    ConferenceId = kz_json:get_ne_binary_value(<<"Conference-ID">>, ConfigReq),
     lager:debug("creating conference config for ~s in account ~s", [ConferenceId, AccountId]),
     Routines = [{fun kapps_conference:set_account_id/2, AccountId}
                ,{fun kapps_conference:set_id/2, ConferenceId}
-               ,{fun kapps_conference:set_profile_name/2, Profile}
+               ,{fun kapps_conference:set_profile_name/2, ProfileName}
                ,fun kapps_conference:reload/1
                ],
     kapps_conference:update(Routines, Conference).
 
--spec handle_request(kz_term:ne_binary(), kz_json:object(), kapps_conference:conference()) -> 'ok'.
-handle_request(<<"Conference">>, JObj, Conference) ->
-    handle_profile_request(JObj, Conference);
-handle_request(<<"Controls">>, JObj, Conference) ->
-    handle_controls_request(JObj, Conference).
+-spec handle_request(kapi_conference:config_req(), kapps_conference:conference(), kz_term:ne_binary()) ->
+          'ok'.
+handle_request(ConfigReq, Conference, <<"Conference">>) ->
+    handle_profile_request(ConfigReq, Conference);
+handle_request(ConfigReq, Conference, <<"Controls">>) ->
+    handle_controls_request(ConfigReq, Conference).
 
--spec handle_profile_request(kz_json:object(), kapps_conference:conference()) -> 'ok'.
-handle_profile_request(JObj, Conference) ->
-    ProfileName = requested_profile_name(JObj),
+-spec handle_profile_request(kapi_conference:config_req(), kapps_conference:conference()) -> 'ok'.
+handle_profile_request(ConfigReq, Conference) ->
+    ProfileName = requested_profile_name(ConfigReq),
     Profile = fetch_profile(ProfileName, Conference),
     Controls = conference_controls(Conference),
 
-    ServerId = kz_api:server_id(JObj),
+    ServerId = kz_api:server_id(ConfigReq),
     Resp = [{<<"Profiles">>, kz_json:from_list([{ProfileName, Profile}])}
            ,{<<"Caller-Controls">>, Controls}
            ,{<<"Advertise">>, advertise(ProfileName)}
            ,{<<"Chat-Permissions">>, chat_permissions(ProfileName)}
-           ,{<<"Msg-ID">>, kz_api:msg_id(JObj)}
+           ,{<<"Msg-ID">>, kz_api:msg_id(ConfigReq)}
            | kz_api:default_headers(?APP_NAME, ?APP_VERSION)
            ],
     lager:debug("returning conference profile ~s", [ProfileName]),
@@ -103,9 +103,13 @@ fetch_profile(ProfileName, Conference) ->
           {'ok', kz_json:object()} |
           {'error', 'not_found'}.
 lookup_profile(ProfileName, Conference) ->
-    Key = {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), ProfileName},
     lager:info("looking up profile ~s", [ProfileName]),
-    kz_cache:peek_local(?CACHE_NAME, Key).
+    kz_cache:peek_local(?CACHE_NAME, cache_profile_key(Conference, ProfileName)).
+
+-spec cache_profile_key(kapps_conference:conference(), kz_term:ne_binary()) ->
+          {'profile', kz_term:api_ne_binary(), kz_term:api_binary(), kz_term:ne_binary()}.
+cache_profile_key(Conference, Name) ->
+    {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), Name}.
 
 -spec requested_profile_name(kz_json:object()) -> kz_term:ne_binary().
 requested_profile_name(JObj) ->
@@ -277,18 +281,22 @@ get_conference_controls_name(<<"moderator-controls">>, Conference) ->
 get_conference_controls_name(_Name, Conference) ->
     kapps_conference:caller_controls(Conference).
 
+-spec conference_controls(kapps_conference:conference()) -> kz_json:object().
 conference_controls(Conference) ->
     ControlNames = lists:usort([kapps_conference:caller_controls(Conference)
                                ,kapps_conference:moderator_controls(Conference)
                                ]),
     kz_json:from_list([{Name, kapps_conference:controls(Conference, Name)} || Name <- ControlNames]).
 
+-spec member_flags(kapps_conference:conference()) -> kz_term:api_ne_binary().
 member_flags(Conference) ->
-    IsMuted = kapps_conference:member_join_muted(Conference),
-    IsDeaf = kapps_conference:member_join_deaf(Conference),
-    member_flags(IsMuted, IsDeaf).
+    Flags = [{kapps_conference:member_join_muted(Conference), <<"mute">>}
+            ,{kapps_conference:member_join_deaf(Conference), <<"deaf">>}
+            ,{kapps_conference:participant_join_video_muted(Conference), <<"vmute">>}
+            ],
+    lists:foldl(fun member_flags_fold/2, 'undefined', Flags).
 
-member_flags('false', 'false') -> 'undefined';
-member_flags('true', 'true') -> <<"mute|deaf">>;
-member_flags('true', 'false') -> <<"mute">>;
-member_flags('false', 'true') -> <<"deaf">>.
+-spec member_flags_fold({boolean(), kz_term:ne_binary()}, kz_term:api_ne_binary()) -> kz_term:api_ne_binary().
+member_flags_fold({'true', Flag}, 'undefined') -> <<Flag/binary>>;
+member_flags_fold({'true', Flag}, Acc) -> <<Acc/binary, "|", Flag/binary>>;
+member_flags_fold({'false', _Flag}, Acc) -> Acc.

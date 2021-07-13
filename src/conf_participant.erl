@@ -606,6 +606,8 @@ send_conference_command(Conference, Call) ->
                                  ,is_deaf(Conference)
                                  ,kapps_conference:moderator(Conference)
                                  ,get_profile_name(Conference)
+                                 ,'false'
+                                 ,is_video_muted(Conference)
                                  ,Call
                                  ).
 
@@ -622,6 +624,10 @@ is_deaf(Conference) ->
         'true' -> kapps_conference:moderator_join_deaf(Conference);
         'false' -> kapps_conference:member_join_deaf(Conference)
     end.
+
+-spec is_video_muted(kapps_conference:conference()) -> boolean().
+is_video_muted(Conference) ->
+    kapps_conference:participant_join_video_muted(Conference).
 
 -spec handle_conference_event(kz_json:object(), kz_term:proplist()) -> 'ok'.
 handle_conference_event(JObj, Props) ->

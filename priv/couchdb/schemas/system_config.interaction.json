@@ -1,0 +1,13 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "_id": "system_config.interaction",
+    "description": "Schema for interaction system_config",
+    "properties": {
+        "process_conference": {
+            "default": true,
+            "description": "interaction process_conference",
+            "type": "boolean"
+        }
+    },
+    "type": "object"
+}
