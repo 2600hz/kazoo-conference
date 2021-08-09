@@ -3,6 +3,14 @@
     "_id": "system_config.conferences",
     "description": "Schema for conferences system_config",
     "properties": {
+        "advertise": {
+            "patternProperties": {
+                ".+": {
+                    "description": "conferences advertise  +",
+                    "type": "object"
+                }
+            }
+        },
         "bridge_password": {
             "description": "conferences bridge password",
             "type": "string"
@@ -10,6 +18,14 @@
         "bridge_username": {
             "description": "conferences bridge username",
             "type": "string"
+        },
+        "chat-permissions": {
+            "patternProperties": {
+                ".+": {
+                    "description": "conferences chat-permissions  +",
+                    "type": "object"
+                }
+            }
         },
         "controls": {
             "properties": {
