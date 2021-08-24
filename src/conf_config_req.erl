@@ -57,6 +57,7 @@ create_conference(ConfigReq) ->
     lager:debug("creating conference config for ~s in account ~s", [ConferenceId, AccountId]),
     Routines = [{fun kapps_conference:set_account_id/2, AccountId}
                ,{fun kapps_conference:set_id/2, ConferenceId}
+               ,{fun kapps_conference:set_name/2, ConferenceId}
                ,{fun kapps_conference:set_profile_name/2, ProfileName}
                ,fun kapps_conference:reload/1
                ],
@@ -73,7 +74,7 @@ handle_request(ConfigReq, Conference, <<"Controls">>) ->
 handle_profile_request(ConfigReq, Conference) ->
     ProfileName = requested_profile_name(ConfigReq),
     Profile = fetch_profile(ProfileName, Conference),
-    Controls = conference_controls(Conference),
+    Controls = conference_controls(kapps_conference:set_profile(Profile, Conference)),
 
     ServerId = kz_api:server_id(ConfigReq),
     Resp = [{<<"Profiles">>, kz_json:from_list([{ProfileName, Profile}])}
@@ -108,6 +109,11 @@ lookup_profile(ProfileName, Conference) ->
 
 -spec cache_profile_key(kapps_conference:conference(), kz_term:ne_binary()) ->
           {'profile', kz_term:api_ne_binary(), kz_term:api_binary(), kz_term:ne_binary()}.
+cache_profile_key(Conference, <<"page">> = Name) ->
+    case kapps_conference:conference_doc(Conference) of
+        undefined -> {'profile', kapps_conference:account_id(Conference), Name};
+        _JObj -> {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), Name}
+    end;
 cache_profile_key(Conference, Name) ->
     {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), Name}.
 
@@ -144,7 +150,7 @@ build_profile(Conference, Name) ->
     {PName, Profile} = kapps_conference:profile(kapps_conference:set_profile_name(Name, Conference)),
     maybe_log_profile_change(Name, PName),
     lager:info("built profile ~s: ~p", [PName, Profile]),
-    build_profile_routines(Conference, Profile).
+    build_profile_routines(kapps_conference:set_profile(Profile, Conference), Profile).
 
 -spec maybe_log_profile_change(kz_term:ne_binary(), kz_term:ne_binary()) -> 'ok'.
 maybe_log_profile_change(Expected, Expected) ->
