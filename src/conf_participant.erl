@@ -511,7 +511,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                      | name_pronounced_headers(Name)
                      ],
     SIPHeaders = props:filter_undefined(
-                   props:set_values(ConfSIPHeaders, bridge_auth_headers(Conference, Call))
+                   props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
                   ),
 
     ConferenceId = kapps_conference:id(Conference),
@@ -565,21 +565,6 @@ remote_ccvs(Call, {'ok', Endpoint}) ->
     kz_json:set_values(kz_json:to_proplist(CallCCVs), EPMinusInvite);
 remote_ccvs(Call, _) ->
     kapps_call:custom_channel_vars(Call).
-
-%% this will be moved to kz_call_auth module
--spec bridge_auth_headers(kapps_conference:conference(), kapps_call:call()) -> kz_term:proplist().
-bridge_auth_headers(_Conference, Call) ->
-    kz_json:foldl(fun bridge_auth_header/3, [], kapps_call:custom_sip_headers(Call)).
-
--spec bridge_auth_header(kz_term:ne_binary(), kz_json:json_term(), kz_term:proplist()) -> kz_term:proplist().
-bridge_auth_header(<<"X-AUTH-Token">>, Value, Acc) ->
-    [{<<"X-FS-Auth-Token">>, Value} | Acc];
-bridge_auth_header(<<"X-AUTH-IP">>, _Value, Acc) -> Acc;
-bridge_auth_header(<<"X-AUTH-PORT">>, _Value, Acc) -> Acc;
-bridge_auth_header(<<"X-AUTH-", _/binary>> = Key, Value, Acc) ->
-    [{Key, Value} | Acc];
-bridge_auth_header(_Key, _Value, Acc) ->
-    Acc.
 
 -spec unbridge_from_conference(kapps_call:call()) -> 'ok'.
 unbridge_from_conference(Call) ->
