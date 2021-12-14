@@ -83,8 +83,7 @@ start_participant(Call, Conference) ->
 
 -spec join_local(kapps_call:call(), kapps_conference:conference(), kz_types:server_ref()) -> 'ok'.
 join_local(Call, Conference, Participant) ->
-    IsModerator = kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conf-Flags-Moderator">>, Call)),
-    Routines = [{fun kapps_conference:set_moderator/2, IsModerator}
+    Routines = [{fun set_moderator/2, Call}
                ,{fun kapps_conference:set_application_version/2, ?APP_VERSION}
                ,{fun kapps_conference:set_application_name/2, ?APP_NAME}
                ],
@@ -93,6 +92,24 @@ join_local(Call, Conference, Participant) ->
     maybe_set_name_pronounced(Call, Participant),
     kapps_call_command:answer(Call),
     conf_participant:join_local(Participant).
+
+-spec set_moderator(kapps_call:call(), kapps_conference:conference()) -> kapps_conference:conference().
+set_moderator(Call, Conference) ->
+    kapps_conference:set_moderator(is_moderator(Call, Conference), Conference).
+
+-spec is_moderator(kapps_call:call(), kapps_conference:conference()) -> boolean().
+is_moderator(Call, Conference) ->
+    has_moderator_flag(Call)
+        orelse is_conference_owner(Call, Conference).
+
+-spec is_conference_owner(kapps_call:call(), kapps_conference:conference()) -> boolean().
+is_conference_owner(Call, Conference) ->
+    kapps_call:owner_id(Call) =:=
+        kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)).
+
+-spec has_moderator_flag(kapps_call:call()) -> boolean().
+has_moderator_flag(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conf-Flags-Moderator">>, Call)).
 
 -spec maybe_set_name_pronounced(kapps_call:call(), kz_types:server_ref()) -> 'ok'.
 maybe_set_name_pronounced(Call, Participant) ->
