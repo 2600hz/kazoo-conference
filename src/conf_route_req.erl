@@ -104,8 +104,18 @@ is_moderator(Call, Conference) ->
 
 -spec is_conference_owner(kapps_call:call(), kapps_conference:conference()) -> boolean().
 is_conference_owner(Call, Conference) ->
-    kapps_call:owner_id(Call) =:=
-        kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)).
+    case kz_endpoint:get(Call) of
+        {error, _} -> false;
+        {ok, Endpoint} -> is_endpoint_conference_owner(Endpoint, Conference)
+    end.
+
+-spec is_endpoint_conference_owner(kz_json:object(), kapps_conference:conference()) -> boolean().
+is_endpoint_conference_owner(Endpoint, Conference) ->
+    kzd_endpoint:owner_id(Endpoint) =:= conference_owner_id(Conference).
+
+-spec conference_owner_id(kapps_conference:conference()) -> kz_term:api_ne_binary().
+conference_owner_id(Conference) ->
+    kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)).
 
 -spec has_moderator_flag(kapps_call:call()) -> boolean().
 has_moderator_flag(Call) ->
