@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2013-2021, 2600Hz
+%%% @copyright (C) 2013-2022, 2600Hz
 %%% @doc Conference participant process
 %%% @author Karl Anderson
 %%% @author James Aimonetti
@@ -524,6 +524,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"To-URI">>, ConferenceURI}
                                  ,{<<"Custom-Channel-Vars">>, remote_ccvs(remove_billing_ccvs(Call))}
                                  ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
+                                 ,{<<"Bypass-Proxy">>, true}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
               ,{<<"Endpoints">>, [Endpoint]}
