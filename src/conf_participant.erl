@@ -491,7 +491,7 @@ should_process_interaction() ->
 
 -spec maybe_set_interaction_id(kapps_call:call(), kz_json:object()) -> any().
 maybe_set_interaction_id(Call, JObj) ->
-    InteractionId = kzd_interaction:id(JObj),
+    InteractionId = kz_json:get_ne_binary_value(<<?CALL_INTERACTION_ID>>, JObj),
     maybe_set_interaction_id(Call, InteractionId, should_process_interaction()).
 
 maybe_set_interaction_id(_Call, _InteractionId, 'false') -> 'ok';
