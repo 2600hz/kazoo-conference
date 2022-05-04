@@ -524,7 +524,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"To-URI">>, ConferenceURI}
                                  ,{<<"Custom-Channel-Vars">>, remote_ccvs(remove_billing_ccvs(Call))}
                                  ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
-                                 ,{<<"Bypass-Proxy">>, true}
+                                 ,{<<"Bypass-Proxy">>, 'true'}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
               ,{<<"Endpoints">>, [Endpoint]}

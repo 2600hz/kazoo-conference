@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2021, 2600Hz
+%%% @copyright (C) 2011-2022, 2600Hz
 %%% @doc
 %%% @author Karl Anderson <karl@2600hz.org>
 %%%
@@ -16,6 +16,8 @@
 -export([flush/0]).
 
 -include("conference.hrl").
+
+-elvis([{elvis_style, no_debug_call, disable}]).
 
 %%------------------------------------------------------------------------------
 %% @doc

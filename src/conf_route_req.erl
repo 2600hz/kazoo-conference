@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2021, 2600Hz
+%%% @copyright (C) 2011-2022, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -105,8 +105,8 @@ is_moderator(Call, Conference) ->
 -spec is_conference_owner(kapps_call:call(), kapps_conference:conference()) -> boolean().
 is_conference_owner(Call, Conference) ->
     case kz_endpoint:get(Call) of
-        {error, _} -> false;
-        {ok, Endpoint} -> is_endpoint_conference_owner(Endpoint, Conference)
+        {'error', _} -> 'false';
+        {'ok', Endpoint} -> is_endpoint_conference_owner(Endpoint, Conference)
     end.
 
 -spec is_endpoint_conference_owner(kz_json:object(), kapps_conference:conference()) -> boolean().
