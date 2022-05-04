@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2021, 2600Hz
+%%% @copyright (C) 2011-2022, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -111,7 +111,7 @@ lookup_profile(ProfileName, Conference) ->
           {'profile', kz_term:api_ne_binary(), kz_term:api_binary(), kz_term:ne_binary()}.
 cache_profile_key(Conference, <<"page">> = Name) ->
     case kapps_conference:conference_doc(Conference) of
-        undefined -> {'profile', kapps_conference:account_id(Conference), Name};
+        'undefined' -> {'profile', kapps_conference:account_id(Conference), Name};
         _JObj -> {'profile', kapps_conference:account_id(Conference), kapps_conference:id(Conference), Name}
     end;
 cache_profile_key(Conference, Name) ->
