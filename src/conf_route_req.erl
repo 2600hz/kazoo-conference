@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2021, 2600Hz
+%%% @copyright (C) 2011-2022, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -44,9 +44,9 @@ maybe_set_conference_id(Request, Call) ->
         'true' ->
             Updates = [{<<"Conference-ID">>, ConferenceId}],
             maybe_get_conference_account_id(Request
-                                     ,Call
-                                     ,kz_json:set_values(Updates, CCVs)
-                                     )
+                                           ,Call
+                                           ,kz_json:set_values(Updates, CCVs)
+                                           )
     end.
 
 -spec maybe_get_conference_account_id(kz_json:object(), kapps_call:call(), kz_json:object()) -> 'ok'.
