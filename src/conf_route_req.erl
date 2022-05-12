@@ -44,9 +44,9 @@ maybe_set_conference_id(Request, Call) ->
         'true' ->
             Updates = [{<<"Conference-ID">>, ConferenceId}],
             maybe_get_conference_account_id(Request
-                                     ,Call
-                                     ,kz_json:set_values(Updates, CCVs)
-                                     )
+                                           ,Call
+                                           ,kz_json:set_values(Updates, CCVs)
+                                           )
     end.
 
 -spec maybe_get_conference_account_id(kz_json:object(), kapps_call:call(), kz_json:object()) -> 'ok'.
