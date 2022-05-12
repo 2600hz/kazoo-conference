@@ -506,15 +506,18 @@ bridge_to_conference(Route, Conference, Call, Name) ->
     IsModerator = kapps_conference:moderator(Conference),
 
     AccountRealm = get_account_realm(Call),
+    ConferenceId = kapps_conference:id(Conference),
 
-    ConfSIPHeaders = [{<<"X-Conf-Flags-Moderator">>, IsModerator}
+    ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
+                     ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
+                     ,{<<"X-Conference-ID">>, ConferenceId}
+                     ,{<<"X-Conference-Play-Welcome">>, <<"false">>}
                      | name_pronounced_headers(Name)
                      ],
     SIPHeaders = props:filter_undefined(
                    props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
                   ),
 
-    ConferenceId = kapps_conference:id(Conference),
     ConferenceURI = list_to_binary(["sip:", ConferenceId, "@", AccountRealm]),
     Endpoint = kz_json:from_list([{<<"Invite-Format">>, <<"route">>}
                                  ,{<<"Route">>, Route}
