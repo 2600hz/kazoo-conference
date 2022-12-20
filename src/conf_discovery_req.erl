@@ -159,8 +159,9 @@ validate_collected_conference_id(Srv, Conference, Loop, Digits) ->
 -spec valid_conference_id(pid(), kapps_conference:conference(), binary()) -> 'ok'.
 valid_conference_id(Srv, Conference, Digits) ->
     JObj = kapps_conference:discovery_request(Conference),
-    ModeratorNumbers = kz_json:get_value([<<"moderator">>, <<"numbers">>], JObj, []),
-    MemberNumbers = kz_json:get_value([<<"member">>, <<"numbers">>], JObj, []),
+    ConferenceDoc = kapps_conference:conference_doc(Conference),
+    ModeratorNumbers = kzd_conferences:moderator_numbers(ConferenceDoc),
+    MemberNumbers = kzd_conferences:member_numbers(ConferenceDoc),
     case {lists:member(Digits, MemberNumbers)
          ,lists:member(Digits, ModeratorNumbers)
           orelse is_conference_owner(Conference)
@@ -207,8 +208,8 @@ create_collected_conference(Doc, Conference) ->
 
 -spec is_conference_owner(kapps_conference:conference()) -> boolean().
 is_conference_owner(Conference) ->
-    kapps_call:owner_id(kapps_conference:call(Conference)) =:=
-        kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)).
+    (kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)) =/= 'undefined')
+        andalso (kapps_call:owner_id(kapps_conference:call(Conference)) =:= kzd_conferences:owner_id(kapps_conference:conference_doc(Conference))).
 
 -spec maybe_set_conference_tones(kapps_conference:conference(), kz_json:object()) ->
           kapps_conference:conference().
