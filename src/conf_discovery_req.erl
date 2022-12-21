@@ -158,26 +158,26 @@ validate_collected_conference_id(Srv, Conference, Loop, Digits) ->
 
 -spec valid_conference_id(pid(), kapps_conference:conference(), binary()) -> 'ok'.
 valid_conference_id(Srv, Conference, Digits) ->
-    JObj = kapps_conference:discovery_request(Conference),
-    ModeratorNumbers = kz_json:get_value([<<"moderator">>, <<"numbers">>], JObj, []),
-    MemberNumbers = kz_json:get_value([<<"member">>, <<"numbers">>], JObj, []),
+    ConferenceDoc = kapps_conference:conference_doc(Conference),
+    ModeratorNumbers = kzd_conferences:moderator_pins(ConferenceDoc, []),
+    MemberNumbers = kzd_conferences:member_pins(ConferenceDoc, []),
     case {lists:member(Digits, MemberNumbers)
          ,lists:member(Digits, ModeratorNumbers)
           orelse is_conference_owner(Conference)
-          orelse kz_json:is_true(<<"Moderator">>, JObj, 'false')
-          orelse kz_json:is_true([<<"Conference-Doc">>, <<"moderator">>], JObj, 'undefined')
+          orelse kz_json:is_true(<<"Moderator">>, ConferenceDoc, 'false')
+          orelse kz_json:is_true([<<"Conference-Doc">>, <<"moderator">>], ConferenceDoc, 'undefined')
          }
     of
         {'true', 'false'} ->
             lager:debug("the entry to the conference wwas unambiguously a member"),
             Conference1 = kapps_conference:set_moderator('false', Conference),
-            Conference2 = maybe_set_conference_tones(Conference1, JObj),
+            Conference2 = maybe_set_conference_tones(Conference1, ConferenceDoc),
             Call = kapps_conference:call(Conference2),
             maybe_skip_conference_pin(Conference2, Call, Srv);
         {'false', 'true'} ->
             lager:debug("the entry to the conference was unambiguously a moderator"),
             Conference1 = kapps_conference:set_moderator('true', Conference),
-            Conference2 = maybe_set_conference_tones(Conference1, JObj),
+            Conference2 = maybe_set_conference_tones(Conference1, ConferenceDoc),
             Call = kapps_conference:call(Conference2),
             maybe_skip_conference_pin(Conference2, Call, Srv);
         %% the conference number is ambiguous regarding member: either both have the same number
@@ -185,7 +185,7 @@ valid_conference_id(Srv, Conference, Digits) ->
         _Else ->
             lager:debug("the digits used were ambiguous whether the caller is member or moderator"),
             Conference1 = kapps_conference:set_moderator('false', Conference), %% TODO: this was 'undefined' but not set during big-conference bridge
-            Conference2 = maybe_set_conference_tones(Conference1, JObj),
+            Conference2 = maybe_set_conference_tones(Conference1, ConferenceDoc),
             Call = kapps_conference:call(Conference2),
             maybe_skip_conference_pin(Conference2, Call, Srv)
     end.
@@ -207,8 +207,10 @@ create_collected_conference(Doc, Conference) ->
 
 -spec is_conference_owner(kapps_conference:conference()) -> boolean().
 is_conference_owner(Conference) ->
-    kapps_call:owner_id(kapps_conference:call(Conference)) =:=
-        kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)).
+    (kapps_call:owner_id(kapps_conference:call(Conference)) =:=
+         kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)))
+        andalso
+          (kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)) =/= 'undefined').
 
 -spec maybe_set_conference_tones(kapps_conference:conference(), kz_json:object()) ->
           kapps_conference:conference().
