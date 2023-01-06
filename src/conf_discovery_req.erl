@@ -208,10 +208,8 @@ create_collected_conference(Doc, Conference) ->
 
 -spec is_conference_owner(kapps_conference:conference()) -> boolean().
 is_conference_owner(Conference) ->
-    (kapps_call:owner_id(kapps_conference:call(Conference)) =:=
-         kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)))
-        andalso
-          (kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)) =/= 'undefined').
+    (kzd_conferences:owner_id(kapps_conference:conference_doc(Conference)) =/= 'undefined')
+        andalso (kapps_call:owner_id(kapps_conference:call(Conference)) =:= kzd_conferences:owner_id(kapps_conference:conference_doc(Conference))).
 
 -spec maybe_set_conference_tones(kapps_conference:conference(), kz_json:object()) ->
           kapps_conference:conference().
