@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2023, 2600Hz
+%%% @copyright (C) 2011-2024, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -50,8 +50,10 @@ create_conference(DiscoveryReq, Call, ConferenceId) ->
     case kz_datamgr:open_cache_doc(kapps_call:account_db(Call), ConferenceId) of
         {'ok', Doc} ->
             lager:debug("discovery request contained a valid conference id, building object"),
-            WithConferenceDoc = kz_json:set_value(<<"Conference-Doc">>, Doc, DiscoveryReq),
-            kapps_conference:from_json(WithConferenceDoc, Conference);
+            ConferenceDocReq = kz_json:get_json_value(<<"Conference-Doc">>, DiscoveryReq),
+            WithConferenceDoc = kz_json:merge(Doc, ConferenceDocReq),
+            DiscoveryReq1 = kz_json:set_value(<<"Conference-Doc">>, WithConferenceDoc, DiscoveryReq),
+            kapps_conference:from_json(DiscoveryReq1, Conference);
         _Else ->
             lager:debug("could not find specified conference id ~s: ~p", [ConferenceId, _Else]),
             kapps_conference:from_json(cleanup_conference_doc(DiscoveryReq), Conference)
