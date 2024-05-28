@@ -503,20 +503,9 @@ maybe_set_interaction_id(Call, InteractionId, 'true') ->
 -spec bridge_to_conference(kz_term:ne_binary(), kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) -> 'ok'.
 bridge_to_conference(Route, Conference, Call, Name) ->
     lager:debug("bridging to conference running at '~s'", [Route]),
-    IsModerator = kapps_conference:moderator(Conference),
 
     AccountRealm = get_account_realm(Call),
     ConferenceId = kapps_conference:id(Conference),
-
-    ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
-                     ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
-                     ,{<<"X-Conference-ID">>, ConferenceId}
-                     ,{<<"X-Conference-Play-Welcome">>, <<"false">>}
-                     | name_pronounced_headers(Name)
-                     ],
-    SIPHeaders = props:filter_undefined(
-                   props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
-                  ),
 
     ConferenceURI = list_to_binary(["sip:", ConferenceId, "@", AccountRealm]),
     Endpoint = kz_json:from_list([{<<"Invite-Format">>, <<"route">>}
@@ -526,7 +515,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
                                  ,{<<"To-URI">>, ConferenceURI}
                                  ,{<<"Custom-Channel-Vars">>, remote_ccvs(remove_billing_ccvs(Call))}
-                                 ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
+                                 ,{<<"Custom-SIP-Headers">>, remote_conference_headers(Conference, Call, Name)}
                                  ,{<<"Bypass-Proxy">>, 'true'}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
@@ -537,6 +526,23 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ,{<<"Hold-Media">>, <<"silence">>}
               ],
     kapps_call_command:send_command(Command, Call).
+
+-spec remote_conference_headers(kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) ->
+          kz_json:object().
+remote_conference_headers(Conference, Call, Name) ->
+    IsModerator = kapps_conference:moderator(Conference),
+    ConferenceId = kapps_conference:id(Conference),
+
+    ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
+                     ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
+                     ,{<<"X-Conference-ID">>, ConferenceId}
+                     ,{<<"X-Conference-Play-Welcome">>, <<"false">>}
+                     ,{<<"X-Conference-Discovery-Req">>, kapps_conference:discovery_request(Conference)}
+                     | name_pronounced_headers(Name)
+                     ],
+    kz_json:from_list(
+      props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
+     ).
 
 %% @doc meant to be used only by `bridge_to_conference/4' function that way kazoo doesn't
 %%      count inter-FS legs as outbound trunks (flat_rate).
@@ -590,15 +596,23 @@ name_pronounced_headers({_, AccountId, MediaId}) ->
 
 -spec send_conference_command(kapps_conference:conference(), kapps_call:call()) -> 'ok'.
 send_conference_command(Conference, Call) ->
-    kapps_call_command:conference(kapps_conference:id(Conference)
-                                 ,is_muted(Conference)
-                                 ,is_deaf(Conference)
-                                 ,kapps_conference:moderator(Conference)
-                                 ,get_profile_name(Conference)
-                                 ,'false'
-                                 ,is_video_muted(Conference)
-                                 ,Call
-                                 ).
+    Command = [{<<"Application-Name">>, <<"conference">>}
+              ,{<<"Conference-ID">>, kapps_conference:id(Conference)}
+              ,{<<"Profile">>, get_profile_name(Conference)}
+              ,{<<"Reinvite">>, 'false'}
+              ,{<<"Account-ID">>, kapps_call:account_id(Call)}
+              ,{<<"Join-Options">>
+               ,kz_json:from_list(
+                  [{<<"Mute">>, is_muted(Conference)}
+                  ,{<<"Deaf">>, is_deaf(Conference)}
+                  ,{<<"Moderator">>, kapps_conference:moderator(Conference)}
+                  ,{<<"Video-Mute">>, is_video_muted(Conference)}
+                  ,{<<"Endconf">>, kapps_conference:endconf(Conference)}
+                  ]
+                 )
+               }
+              ],
+    kapps_call_command:send_command(Command, Call).
 
 -spec is_muted(kapps_conference:conference()) -> boolean().
 is_muted(Conference) ->

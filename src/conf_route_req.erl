@@ -132,7 +132,15 @@ route_win(Call) ->
           ,{<<"Require-Pin">>, 'false'}
           | kz_api:default_headers(?APP_NAME, ?APP_VERSION)
           ]),
-    conf_discovery_req:process_req(kz_json:from_list(DiscoverReq)).
+    conf_discovery_req:process_req(kz_json:set_values(DiscoverReq, discovery_req_from_route(Call))).
+
+-spec discovery_req_from_route(kapps_call:call()) -> kz_json:object().
+discovery_req_from_route(Call) ->
+    JObj = kapps_call:custom_sip_header(<<"X-Conference-Discovery-Req">>, Call),
+    case kz_json:is_json_object(JObj) of
+        'true' -> JObj;
+        'false' -> kz_json:new()
+    end.
 
 -spec is_moderator(kapps_call:call()) -> boolean().
 is_moderator(Call) ->
