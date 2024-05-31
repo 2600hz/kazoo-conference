@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2023, 2600Hz
+%%% @copyright (C) 2011-2024, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -233,7 +233,7 @@ ensure_wait_mod(Profile, Flags) ->
     Flag = <<"wait-mod">>,
     case lists:member(Flag, Flags) of
         'true' -> Profile;
-        'false' -> kz_json:set_value(Key, <<Flags/binary, "|", Flag/binary>>, Profile)
+        'false' -> kz_json:set_value(Key, kz_binary:join([Flag | Flags], <<"|">>), Profile)
     end.
 
 -spec remove_wait_mod(kz_json:object(), kz_term:ne_binaries()) -> kz_json:object().
@@ -242,7 +242,7 @@ remove_wait_mod(Profile, []) ->
 remove_wait_mod(Profile, Flags) ->
     Key = <<"conference-flags">>,
     Flag = <<"wait-mod">>,
-    Without = [K || K <- binary:split(Flags, <<"|">>, ['global', 'trim_both']),
+    Without = [K || K <- binary:split(Flags, <<"|">>, ['global', 'trim_all']),
                     K =/= Flag
               ],
     case kz_binary:join(Without, <<"|">>) of
