@@ -515,7 +515,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
                                  ,{<<"To-URI">>, ConferenceURI}
                                  ,{<<"Custom-Channel-Vars">>, remote_ccvs(remove_billing_ccvs(Call))}
-                                 ,{<<"Custom-SIP-Headers">>, remote_conference_headers(Conference, Call, Name)}
+                                 ,{<<"Custom-SIP-Headers">>, conference_headers(Conference, Call, Name)}
                                  ,{<<"Bypass-Proxy">>, 'true'}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
@@ -527,22 +527,37 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ],
     kapps_call_command:send_command(Command, Call).
 
--spec remote_conference_headers(kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) ->
+-spec conference_headers(kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) ->
           kz_json:object().
-remote_conference_headers(Conference, Call, Name) ->
+conference_headers(Conference, Call, Name) ->
     IsModerator = kapps_conference:moderator(Conference),
     ConferenceId = kapps_conference:id(Conference),
+    DiscoveryJObj = kapps_conference:discovery_request(Conference),
 
     ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
                      ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
                      ,{<<"X-Conference-ID">>, ConferenceId}
-                     ,{<<"X-Conference-Play-Welcome">>, <<"false">>}
-                     ,{<<"X-Conference-Discovery-Req">>, kapps_conference:discovery_request(Conference)}
-                     | name_pronounced_headers(Name)
+                     ,{<<"X-Conference-Play-Welcome">>, kapps_conference:play_welcome(Conference)}
+                     ,{<<"X-Conference-Play-Welcome-Meida">>, kz_json:get_ne_binary_value(<<"Play-Welcome-Media">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Play-Entry-Tone">>, kapps_conference:play_entry_tone(Conference)}
+                     ,{<<"X-Conference-Play-Exit-Tone">>, kapps_conference:play_exit_tone(Conference)}
+                     ,{<<"X-Conference-Last-Member-Endconf">>, kapps_conference:endconf(Conference)}
+                     ,{<<"X-Conference-Participant-Join-Video-Muted">>, kapps_conference:participant_join_video_muted(Conference)}
+                     | deaf_muted_headers(Conference, IsModerator) ++ name_pronounced_headers(Name)
                      ],
     kz_json:from_list(
       props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
      ).
+
+-spec deaf_muted_headers(kapps_conference:conference(), boolean()) -> kz_term:api_proplist().
+deaf_muted_headers(Conference, 'true') ->
+    [{<<"Moderator-Join-Deaf">>, kapps_conference:moderator_join_deaf(Conference)}
+    ,{<<"Moderator-Join-Muted">>, kapps_conference:moderator_join_muted(Conference)}
+    ];
+deaf_muted_headers(Conference, 'true') ->
+    [{<<"Member-Join-Deaf">>, kapps_conference:member_join_deaf(Conference)}
+    ,{<<"Member-Join-Muted">>, kapps_conference:member_join_muted(Conference)}
+    ].
 
 %% @doc meant to be used only by `bridge_to_conference/4' function that way kazoo doesn't
 %%      count inter-FS legs as outbound trunks (flat_rate).
