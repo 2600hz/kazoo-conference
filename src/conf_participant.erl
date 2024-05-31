@@ -607,7 +607,7 @@ send_conference_command(Conference, Call) ->
                   ,{<<"Deaf">>, is_deaf(Conference)}
                   ,{<<"Moderator">>, kapps_conference:moderator(Conference)}
                   ,{<<"Video-Mute">>, is_video_muted(Conference)}
-                  ,{<<"Endconf">>, kapps_conference:endconf(Conference)}
+                  ,{<<"End-Conference">>, kapps_conference:endconf(Conference)}
                   ]
                  )
                }
