@@ -538,7 +538,7 @@ conference_headers(Conference, Call, Name) ->
                      ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
                      ,{<<"X-Conference-ID">>, ConferenceId}
                      ,{<<"X-Conference-Play-Welcome">>, kapps_conference:play_welcome(Conference)}
-                     ,{<<"X-Conference-Play-Welcome-Meida">>, kz_json:get_ne_binary_value(<<"Play-Welcome-Media">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Play-Welcome-Media">>, kz_json:get_ne_binary_value(<<"Play-Welcome-Media">>, DiscoveryJObj)}
                      ,{<<"X-Conference-Play-Entry-Tone">>, kapps_conference:play_entry_tone(Conference)}
                      ,{<<"X-Conference-Play-Exit-Tone">>, kapps_conference:play_exit_tone(Conference)}
                      ,{<<"X-Conference-Last-Member-Endconf">>, get_last_member_endconf(Conference)}

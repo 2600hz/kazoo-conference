@@ -128,23 +128,45 @@ route_win(Call) ->
           ,{<<"Play-Welcome-Media">>, get_welcome_media(Call)}
           ,{<<"Play-Exit-Tone">>, maybe_play_exit(Call)}
           ,{<<"Play-Entry-Tone">>, maybe_play_entry(Call)}
+          ,{<<"Last-Member-Endconf">>, is_last_member_endconf(Call)}
+          ,{<<"Participant-Join-Video-Muted">>, is_participant_join_video_muted(Call)}
+          ,{<<"Moderator-Join-Deaf">>, is_moderator_join_deaf(Call)}
+          ,{<<"Moderator-Join-Muted">>, is_moderator_join_muted(Call)}
+          ,{<<"Member-Join-Deaf">>, is_member_join_deaf(Call)}
+          ,{<<"Member-Join-Muted">>, is_member_join_muted(Call)}
           ,{<<"Entry-Pin">>, kapps_call:custom_sip_header(<<"X-Conference-Pin">>, Call)}
           ,{<<"Require-Pin">>, 'false'}
           | kz_api:default_headers(?APP_NAME, ?APP_VERSION)
           ]),
-    conf_discovery_req:process_req(kz_json:set_values(DiscoverReq, discovery_req_from_route(Call))).
-
--spec discovery_req_from_route(kapps_call:call()) -> kz_json:object().
-discovery_req_from_route(Call) ->
-    JObj = kapps_call:custom_sip_header(<<"X-Conference-Discovery-Req">>, Call),
-    case kz_json:is_json_object(JObj) of
-        'true' -> JObj;
-        'false' -> kz_json:new()
-    end.
+    conf_discovery_req:process_req(kz_json:from_list(DiscoverReq)).
 
 -spec is_moderator(kapps_call:call()) -> boolean().
 is_moderator(Call) ->
     kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Moderator">>, Call)).
+
+-spec is_last_member_endconf(kapps_call:call()) -> boolean().
+is_last_member_endconf(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Last-Member-Endconf">>, Call)).
+
+-spec is_participant_join_video_muted(kapps_call:call()) -> boolean().
+is_participant_join_video_muted(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Participant-Join-Video-Muted">>, Call)).
+
+-spec is_moderator_join_deaf(kapps_call:call()) -> boolean().
+is_moderator_join_deaf(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Moderator-Join-Deaf">>, Call)).
+
+-spec is_moderator_join_muted(kapps_call:call()) -> boolean().
+is_moderator_join_muted(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Moderator-Join-Muted">>, Call)).
+
+-spec is_member_join_deaf(kapps_call:call()) -> boolean().
+is_member_join_deaf(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Member-Join-Deaf">>, Call)).
+
+-spec is_member_join_muted(kapps_call:call()) -> boolean().
+is_member_join_muted(Call) ->
+    kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Member-Join-Muted">>, Call)).
 
 -spec maybe_play_welcome(kapps_call:call()) -> boolean().
 maybe_play_welcome(Call) ->
