@@ -551,12 +551,12 @@ conference_headers(Conference, Call, Name) ->
 
 -spec deaf_muted_headers(kapps_conference:conference(), boolean()) -> kz_term:api_proplist().
 deaf_muted_headers(Conference, 'true') ->
-    [{<<"Moderator-Join-Deaf">>, kapps_conference:moderator_join_deaf(Conference)}
-    ,{<<"Moderator-Join-Muted">>, kapps_conference:moderator_join_muted(Conference)}
+    [{<<"X-Conference-Moderator-Join-Deaf">>, kapps_conference:moderator_join_deaf(Conference)}
+    ,{<<"X-Conference-Moderator-Join-Muted">>, kapps_conference:moderator_join_muted(Conference)}
     ];
 deaf_muted_headers(Conference, 'true') ->
-    [{<<"Member-Join-Deaf">>, kapps_conference:member_join_deaf(Conference)}
-    ,{<<"Member-Join-Muted">>, kapps_conference:member_join_muted(Conference)}
+    [{<<"X-Conference-Member-Join-Deaf">>, kapps_conference:member_join_deaf(Conference)}
+    ,{<<"X-Conference-Member-Join-Muted">>, kapps_conference:member_join_muted(Conference)}
     ].
 
 %% @doc meant to be used only by `bridge_to_conference/4' function that way kazoo doesn't
