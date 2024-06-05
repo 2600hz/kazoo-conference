@@ -541,7 +541,7 @@ conference_headers(Conference, Call, Name) ->
                      ,{<<"X-Conference-Play-Welcome-Meida">>, kz_json:get_ne_binary_value(<<"Play-Welcome-Media">>, DiscoveryJObj)}
                      ,{<<"X-Conference-Play-Entry-Tone">>, kapps_conference:play_entry_tone(Conference)}
                      ,{<<"X-Conference-Play-Exit-Tone">>, kapps_conference:play_exit_tone(Conference)}
-                     ,{<<"X-Conference-Last-Member-Endconf">>, kapps_conference:endconf(Conference)}
+                     ,{<<"X-Conference-Last-Member-Endconf">>, get_last_member_endconf(Conference)}
                      ,{<<"X-Conference-Participant-Join-Video-Muted">>, kapps_conference:participant_join_video_muted(Conference)}
                      | deaf_muted_headers(Conference, IsModerator) ++ name_pronounced_headers(Name)
                      ],
@@ -622,7 +622,7 @@ send_conference_command(Conference, Call) ->
                   ,{<<"Deaf">>, is_deaf(Conference)}
                   ,{<<"Moderator">>, kapps_conference:moderator(Conference)}
                   ,{<<"Video-Mute">>, is_video_muted(Conference)}
-                  ,{<<"End-Conference">>, kapps_conference:endconf(Conference)}
+                  ,{<<"End-Conference">>, get_last_member_endconf(Conference)}
                   ]
                  )
                }
@@ -646,6 +646,15 @@ is_deaf(Conference) ->
 -spec is_video_muted(kapps_conference:conference()) -> boolean().
 is_video_muted(Conference) ->
     kapps_conference:participant_join_video_muted(Conference).
+
+-spec get_last_member_endconf(kapps_conference:conference()) -> boolean().
+get_last_member_endconf(Conference) ->
+    case kapps_conference:discovery_request(Conference) of
+        'undefined' ->
+            'false';
+        DiscoveryJObj ->
+            kz_json:is_true(<<"Last-Member-Endconf">>, DiscoveryJObj)
+    end.
 
 -spec handle_conference_event(kz_json:object(), kz_term:proplist()) -> 'ok'.
 handle_conference_event(JObj, Props) ->
