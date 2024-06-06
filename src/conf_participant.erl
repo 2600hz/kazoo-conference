@@ -537,26 +537,26 @@ conference_headers(Conference, Call, Name) ->
     ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
                      ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
                      ,{<<"X-Conference-ID">>, ConferenceId}
-                     ,{<<"X-Conference-Play-Welcome">>, kapps_conference:play_welcome(Conference)}
+                     ,{<<"X-Conference-Play-Welcome">>, kz_json:get_boolean_value(<<"Play-Welcome">>, DiscoveryJObj)}
                      ,{<<"X-Conference-Play-Welcome-Media">>, kz_json:get_ne_binary_value(<<"Play-Welcome-Media">>, DiscoveryJObj)}
-                     ,{<<"X-Conference-Play-Entry-Tone">>, kapps_conference:play_entry_tone(Conference)}
-                     ,{<<"X-Conference-Play-Exit-Tone">>, kapps_conference:play_exit_tone(Conference)}
-                     ,{<<"X-Conference-Last-Member-Endconf">>, get_last_member_endconf(Conference)}
-                     ,{<<"X-Conference-Participant-Join-Video-Muted">>, kapps_conference:participant_join_video_muted(Conference)}
+                     ,{<<"X-Conference-Play-Entry-Tone">>, kz_json:get_boolean_value(<<"Play-Entry-Tone">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Play-Exit-Tone">>, kz_json:get_boolean_value(<<"Play-Exit-Tone">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Last-Member-Endconf">>, kz_json:get_boolean_value(<<"Last-Member-Endconf">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Participant-Join-Video-Muted">>, kz_json:get_boolean_value(<<"Participant-Join-Video-Muted">>, DiscoveryJObj)}
                      | deaf_muted_headers(Conference, IsModerator) ++ name_pronounced_headers(Name)
                      ],
     kz_json:from_list(
       props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
      ).
 
--spec deaf_muted_headers(kapps_conference:conference(), boolean()) -> kz_term:api_proplist().
-deaf_muted_headers(Conference, 'true') ->
-    [{<<"X-Conference-Moderator-Join-Deaf">>, kapps_conference:moderator_join_deaf(Conference)}
-    ,{<<"X-Conference-Moderator-Join-Muted">>, kapps_conference:moderator_join_muted(Conference)}
+-spec deaf_muted_headers(kz_json:object(), kz_term:api_boolean()) -> kz_term:proplist().
+deaf_muted_headers(DiscoveryJObj, 'true') ->
+    [{<<"X-Conference-Moderator-Join-Deaf">>, kz_json:get_boolean_value(<<"Moderator-Join-Deaf">>, DiscoveryJObj)}
+    ,{<<"X-Conference-Moderator-Join-Muted">>, kz_json:get_boolean_value(<<"Moderator-Join-Muted">>, DiscoveryJObj)}
     ];
-deaf_muted_headers(Conference, 'true') ->
-    [{<<"X-Conference-Member-Join-Deaf">>, kapps_conference:member_join_deaf(Conference)}
-    ,{<<"X-Conference-Member-Join-Muted">>, kapps_conference:member_join_muted(Conference)}
+deaf_muted_headers(DiscoveryJObj, _) ->
+    [{<<"X-Conference-Member-Join-Deaf">>, kz_json:get_boolean_value(<<"Member-Join-Deaf">>, DiscoveryJObj)}
+    ,{<<"X-Conference-Member-Join-Muted">>, kz_json:get_boolean_value(<<"Member-Join-Muted">>, DiscoveryJObj)}
     ].
 
 %% @doc meant to be used only by `bridge_to_conference/4' function that way kazoo doesn't
@@ -633,27 +633,27 @@ send_conference_command(Conference, Call) ->
 is_muted(Conference) ->
     case kapps_conference:moderator(Conference) of
         'true' -> kapps_conference:moderator_join_muted(Conference);
-        'false' -> kapps_conference:member_join_muted(Conference)
+        _ -> kapps_conference:member_join_muted(Conference)
     end.
 
 -spec is_deaf(kapps_conference:conference()) -> boolean().
 is_deaf(Conference) ->
     case kapps_conference:moderator(Conference) of
         'true' -> kapps_conference:moderator_join_deaf(Conference);
-        'false' -> kapps_conference:member_join_deaf(Conference)
+        _ -> kapps_conference:member_join_deaf(Conference)
     end.
 
 -spec is_video_muted(kapps_conference:conference()) -> boolean().
 is_video_muted(Conference) ->
     kapps_conference:participant_join_video_muted(Conference).
 
--spec get_last_member_endconf(kapps_conference:conference()) -> boolean().
+-spec get_last_member_endconf(kapps_conference:conference()) -> kz_term:api_boolean().
 get_last_member_endconf(Conference) ->
     case kapps_conference:discovery_request(Conference) of
         'undefined' ->
-            'false';
+            'undefined';
         DiscoveryJObj ->
-            kz_json:is_true(<<"Last-Member-Endconf">>, DiscoveryJObj)
+            kz_json:is_true(<<"Last-Member-Endconf">>, DiscoveryJObj, 'undefined')
     end.
 
 -spec handle_conference_event(kz_json:object(), kz_term:proplist()) -> 'ok'.
