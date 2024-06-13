@@ -128,7 +128,8 @@ route_win(Call) ->
           ,{<<"Play-Welcome-Media">>, get_welcome_media(Call)}
           ,{<<"Play-Exit-Tone">>, maybe_play_exit(Call)}
           ,{<<"Play-Entry-Tone">>, maybe_play_entry(Call)}
-          ,{<<"Last-Member-Endconf">>, is_last_member_endconf(Call)}
+          ,{<<"End-On-Leave">>, is_endconf_on_leave(Call)}
+          ,{<<"End-On-Last-Member-Leave">>, is_last_member_endconf(Call)}
           ,{<<"Participant-Join-Video-Muted">>, is_participant_join_video_muted(Call)}
           ,{<<"Moderator-Join-Deaf">>, is_moderator_join_deaf(Call)}
           ,{<<"Moderator-Join-Muted">>, is_moderator_join_muted(Call)}
@@ -144,9 +145,18 @@ route_win(Call) ->
 is_moderator(Call) ->
     kz_term:is_true(kapps_call:custom_sip_header(<<"X-Conference-Moderator">>, Call)).
 
+-spec is_endconf_on_leave(kapps_call:call()) -> kz_term:api_boolean().
+is_endconf_on_leave(Call) ->
+    case kapps_call:custom_sip_header(<<"X-Conference-End-On-Leave">>, Call) of
+        'undefined' ->
+            'undefined';
+        Value ->
+            kz_term:is_true(Value)
+    end.
+
 -spec is_last_member_endconf(kapps_call:call()) -> kz_term:api_boolean().
 is_last_member_endconf(Call) ->
-    case kapps_call:custom_sip_header(<<"X-Conference-Last-Member-Endconf">>, Call) of
+    case kapps_call:custom_sip_header(<<"X-Conference-End-On-Last-Member-Leave">>, Call) of
         'undefined' ->
             'undefined';
         Value ->
