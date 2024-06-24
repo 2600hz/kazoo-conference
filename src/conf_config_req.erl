@@ -218,7 +218,7 @@ verify_exit_tones(Conference, Profile) ->
 -spec verify_wait_mod(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
 verify_wait_mod(Conference, Profile) ->
     Key = <<"conference-flags">>,
-    Flags = binary:split(kz_json:get_ne_binary_value(Key, Profile, <<>>), <<"|">>, ['global', 'trim_both']),
+    Flags = binary:split(kz_json:get_ne_binary_value(Key, Profile, <<>>), <<"|">>, ['global', 'trim_all']),
     case kapps_conference:wait_for_moderator(Conference) of
         'true' -> ensure_wait_mod(Profile, Flags);
         'false' -> remove_wait_mod(Profile, Flags)
@@ -241,10 +241,8 @@ remove_wait_mod(Profile, []) ->
     Profile;
 remove_wait_mod(Profile, Flags) ->
     Key = <<"conference-flags">>,
-    Flag = <<"wait-mod">>,
-    Without = [K || K <- binary:split(Flags, <<"|">>, ['global', 'trim_all']),
-                    K =/= Flag
-              ],
+    Flag = <<"wait-mode">>,
+    Without = [K || K <- Flags, K =/= Flag],
     case kz_binary:join(Without, <<"|">>) of
         <<>> -> kz_json:delete_key(Key, Profile);
         NewFlags -> kz_json:set_value(Key, NewFlags, Profile)
