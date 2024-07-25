@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2023, 2600Hz
+%%% @copyright (C) 2011-2024, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -14,7 +14,6 @@
         ]).
 
 -include("conference.hrl").
--include_lib("kazoo_stdlib/include/kz_databases.hrl").
 
 -spec cache_profile(kapps_conference:conference()) -> 'ok'.
 cache_profile(Conference) ->
@@ -165,6 +164,7 @@ build_profile_routines(Conference, Profile) ->
                ,fun add_on_enter_extension/2
                ,fun verify_entry_tones/2
                ,fun verify_exit_tones/2
+               ,fun verify_wait_mod/2
                ],
     lists:foldl(fun(F, P) -> F(Conference, P) end, Profile, Routines).
 
@@ -195,6 +195,7 @@ add_conference_params(Conference, Profile) ->
               ,{<<"domain">>, kapps_conference:domain(Conference)}
               ,{<<"extra-settings">>, kapps_conference:extra_settings(Conference)}
               ,{<<"verbose-events">>, 'true'}
+              ,{<<"endconf-grace-time">>, endconf_grace_time(Conference)}
               ]),
     kz_json:set_values(Props, Profile).
 
@@ -212,6 +213,39 @@ verify_exit_tones(Conference, Profile) ->
     case kapps_conference:play_exit_tone(Conference) of
         'true' -> ensure_tone(Key, Profile, kapps_conference:exit_tone(Conference));
         'false' -> remove_tone(Key, Profile)
+    end.
+
+-spec verify_wait_mod(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
+verify_wait_mod(Conference, Profile) ->
+    Key = <<"conference-flags">>,
+    Flags = binary:split(kz_json:get_ne_binary_value(Key, Profile, <<>>), <<"|">>, ['global', 'trim_all']),
+    case kapps_conference:wait_for_moderator(Conference) of
+        'true' -> ensure_wait_mod(Profile, Flags);
+        'false' -> remove_wait_mod(Profile, Flags)
+    end.
+
+-spec ensure_wait_mod(kz_json:object(), kz_term:ne_binaries()) -> kz_json:object().
+ensure_wait_mod(Profile, []) ->
+    Key = <<"conference-flags">>,
+    kz_json:set_value(Key, <<"wait-mod">>, Profile);
+ensure_wait_mod(Profile, Flags) ->
+    Key = <<"conference-flags">>,
+    Flag = <<"wait-mod">>,
+    case lists:member(Flag, Flags) of
+        'true' -> Profile;
+        'false' -> kz_json:set_value(Key, kz_binary:join([Flag | Flags], <<"|">>), Profile)
+    end.
+
+-spec remove_wait_mod(kz_json:object(), kz_term:ne_binaries()) -> kz_json:object().
+remove_wait_mod(Profile, []) ->
+    Profile;
+remove_wait_mod(Profile, Flags) ->
+    Key = <<"conference-flags">>,
+    Flag = <<"wait-mode">>,
+    Without = [K || K <- Flags, K =/= Flag],
+    case kz_binary:join(Without, <<"|">>) of
+        <<>> -> kz_json:delete_key(Key, Profile);
+        NewFlags -> kz_json:set_value(Key, NewFlags, Profile)
     end.
 
 -spec ensure_tone(kz_term:ne_binary(), kz_json:object(), kz_term:ne_binary()) -> kz_json:object().
@@ -253,6 +287,13 @@ max_members_sound(Conference) ->
         Media ->
             lager:debug("conference has max-members-sound: ~s", [Media]),
             Media
+    end.
+
+-spec endconf_grace_time(kapps_conference:conference()) -> kz_term:api_integer().
+endconf_grace_time(Conference) ->
+    case kapps_conference:endconf_grace_time(Conference) of
+        N when is_integer(N), N >= 1 -> N;
+        _Else -> 'undefined'
     end.
 
 -spec handle_controls_request(kz_json:object(), kapps_conference:conference()) -> 'ok'.

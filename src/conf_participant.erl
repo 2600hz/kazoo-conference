@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2013-2023, 2600Hz
+%%% @copyright (C) 2013-2024, 2600Hz
 %%% @doc Conference participant process
 %%% @author Karl Anderson
 %%% @author James Aimonetti
@@ -503,20 +503,9 @@ maybe_set_interaction_id(Call, InteractionId, 'true') ->
 -spec bridge_to_conference(kz_term:ne_binary(), kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) -> 'ok'.
 bridge_to_conference(Route, Conference, Call, Name) ->
     lager:debug("bridging to conference running at '~s'", [Route]),
-    IsModerator = kapps_conference:moderator(Conference),
 
     AccountRealm = get_account_realm(Call),
     ConferenceId = kapps_conference:id(Conference),
-
-    ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
-                     ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
-                     ,{<<"X-Conference-ID">>, ConferenceId}
-                     ,{<<"X-Conference-Play-Welcome">>, <<"false">>}
-                     | name_pronounced_headers(Name)
-                     ],
-    SIPHeaders = props:filter_undefined(
-                   props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
-                  ),
 
     ConferenceURI = list_to_binary(["sip:", ConferenceId, "@", AccountRealm]),
     Endpoint = kz_json:from_list([{<<"Invite-Format">>, <<"route">>}
@@ -526,7 +515,7 @@ bridge_to_conference(Route, Conference, Call, Name) ->
                                  ,{<<"Ignore-Early-Media">>, <<"true">>}
                                  ,{<<"To-URI">>, ConferenceURI}
                                  ,{<<"Custom-Channel-Vars">>, remote_ccvs(remove_billing_ccvs(Call))}
-                                 ,{<<"Custom-SIP-Headers">>, kz_json:from_list(SIPHeaders)}
+                                 ,{<<"Custom-SIP-Headers">>, conference_headers(Conference, Call, Name)}
                                  ,{<<"Bypass-Proxy">>, 'true'}
                                  ]),
     Command = [{<<"Application-Name">>, <<"bridge">>}
@@ -537,6 +526,39 @@ bridge_to_conference(Route, Conference, Call, Name) ->
               ,{<<"Hold-Media">>, <<"silence">>}
               ],
     kapps_call_command:send_command(Command, Call).
+
+-spec conference_headers(kapps_conference:conference(), kapps_call:call(), conf_pronounced_name:name_pronounced()) ->
+          kz_json:object().
+conference_headers(Conference, Call, Name) ->
+    IsModerator = kapps_conference:moderator(Conference),
+    ConferenceId = kapps_conference:id(Conference),
+    DiscoveryJObj = kapps_conference:discovery_request(Conference),
+
+    ConfSIPHeaders = [{<<"X-Conference-Moderator">>, IsModerator}
+                     ,{<<"X-Conference-Account-ID">>, kapps_call:account_id(Call)}
+                     ,{<<"X-Conference-ID">>, ConferenceId}
+                     ,{<<"X-Conference-Play-Welcome">>, kz_json:get_boolean_value(<<"Play-Welcome">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Play-Welcome-Media">>, kz_json:get_ne_binary_value(<<"Play-Welcome-Media">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Play-Entry-Tone">>, kz_json:get_boolean_value(<<"Play-Entry-Tone">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Play-Exit-Tone">>, kz_json:get_boolean_value(<<"Play-Exit-Tone">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-End-On-Leave">>, kz_json:get_boolean_value(<<"End-On-Leave">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-End-On-Last-Member-Leave">>, kz_json:get_boolean_value(<<"End-On-Last-Member-Leave">>, DiscoveryJObj)}
+                     ,{<<"X-Conference-Participant-Join-Video-Muted">>, kz_json:get_boolean_value(<<"Participant-Join-Video-Muted">>, DiscoveryJObj)}
+                     | deaf_muted_headers(Conference, IsModerator) ++ name_pronounced_headers(Name)
+                     ],
+    kz_json:from_list(
+      props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
+     ).
+
+-spec deaf_muted_headers(kz_json:object(), kz_term:api_boolean()) -> kz_term:proplist().
+deaf_muted_headers(DiscoveryJObj, 'true') ->
+    [{<<"X-Conference-Moderator-Join-Deaf">>, kz_json:get_boolean_value(<<"Moderator-Join-Deaf">>, DiscoveryJObj)}
+    ,{<<"X-Conference-Moderator-Join-Muted">>, kz_json:get_boolean_value(<<"Moderator-Join-Muted">>, DiscoveryJObj)}
+    ];
+deaf_muted_headers(DiscoveryJObj, _) ->
+    [{<<"X-Conference-Member-Join-Deaf">>, kz_json:get_boolean_value(<<"Member-Join-Deaf">>, DiscoveryJObj)}
+    ,{<<"X-Conference-Member-Join-Muted">>, kz_json:get_boolean_value(<<"Member-Join-Muted">>, DiscoveryJObj)}
+    ].
 
 %% @doc meant to be used only by `bridge_to_conference/4' function that way kazoo doesn't
 %%      count inter-FS legs as outbound trunks (flat_rate).
@@ -590,28 +612,38 @@ name_pronounced_headers({_, AccountId, MediaId}) ->
 
 -spec send_conference_command(kapps_conference:conference(), kapps_call:call()) -> 'ok'.
 send_conference_command(Conference, Call) ->
-    kapps_call_command:conference(kapps_conference:id(Conference)
-                                 ,is_muted(Conference)
-                                 ,is_deaf(Conference)
-                                 ,kapps_conference:moderator(Conference)
-                                 ,get_profile_name(Conference)
-                                 ,'false'
-                                 ,is_video_muted(Conference)
-                                 ,Call
-                                 ).
+    DiscoveryJObj = kapps_conference:discovery_request(Conference),
+    Command = [{<<"Application-Name">>, <<"conference">>}
+              ,{<<"Conference-ID">>, kapps_conference:id(Conference)}
+              ,{<<"Profile">>, get_profile_name(Conference)}
+              ,{<<"Reinvite">>, 'false'}
+              ,{<<"Account-ID">>, kapps_call:account_id(Call)}
+              ,{<<"Join-Options">>
+               ,kz_json:from_list(
+                  [{<<"Mute">>, is_muted(Conference)}
+                  ,{<<"Deaf">>, is_deaf(Conference)}
+                  ,{<<"Moderator">>, kapps_conference:moderator(Conference)}
+                  ,{<<"Video-Mute">>, is_video_muted(Conference)}
+                  ,{<<"End-On-Leave">>, kz_json:get_boolean_value(<<"End-On-Leave">>, DiscoveryJObj)}
+                  ,{<<"End-On-Last-Member-Leave">>, kz_json:get_boolean_value(<<"End-On-Last-Member-Leave">>, DiscoveryJObj)}
+                  ]
+                 )
+               }
+              ],
+    kapps_call_command:send_command(Command, Call).
 
 -spec is_muted(kapps_conference:conference()) -> boolean().
 is_muted(Conference) ->
     case kapps_conference:moderator(Conference) of
         'true' -> kapps_conference:moderator_join_muted(Conference);
-        'false' -> kapps_conference:member_join_muted(Conference)
+        _ -> kapps_conference:member_join_muted(Conference)
     end.
 
 -spec is_deaf(kapps_conference:conference()) -> boolean().
 is_deaf(Conference) ->
     case kapps_conference:moderator(Conference) of
         'true' -> kapps_conference:moderator_join_deaf(Conference);
-        'false' -> kapps_conference:member_join_deaf(Conference)
+        _ -> kapps_conference:member_join_deaf(Conference)
     end.
 
 -spec is_video_muted(kapps_conference:conference()) -> boolean().
