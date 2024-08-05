@@ -544,7 +544,7 @@ conference_headers(Conference, Call, Name) ->
                      ,{<<"X-Conference-End-On-Leave">>, kz_json:get_boolean_value(<<"End-On-Leave">>, DiscoveryJObj)}
                      ,{<<"X-Conference-End-On-Last-Member-Leave">>, kz_json:get_boolean_value(<<"End-On-Last-Member-Leave">>, DiscoveryJObj)}
                      ,{<<"X-Conference-Participant-Join-Video-Muted">>, kz_json:get_boolean_value(<<"Participant-Join-Video-Muted">>, DiscoveryJObj)}
-                     | deaf_muted_headers(Conference, IsModerator) ++ name_pronounced_headers(Name)
+                     | deaf_muted_headers(DiscoveryJObj, IsModerator) ++ name_pronounced_headers(Name)
                      ],
     kz_json:from_list(
       props:set_values(ConfSIPHeaders, kapps_call:remote_bridge_auth_headers(Call))
