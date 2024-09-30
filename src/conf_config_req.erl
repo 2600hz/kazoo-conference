@@ -340,6 +340,7 @@ member_flags(Conference) ->
     Flags = [{kapps_conference:member_join_muted(Conference), <<"mute">>}
             ,{kapps_conference:member_join_deaf(Conference), <<"deaf">>}
             ,{kapps_conference:participant_join_video_muted(Conference), <<"vmute">>}
+            ,{kapps_conference:wait_for_moderator(Conference), <<"wait-mod">>}
             ],
     lists:foldl(fun member_flags_fold/2, 'undefined', Flags).
 
