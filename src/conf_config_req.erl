@@ -241,7 +241,7 @@ remove_wait_mod(Profile, []) ->
     Profile;
 remove_wait_mod(Profile, Flags) ->
     Key = <<"conference-flags">>,
-    Flag = <<"wait-mode">>,
+    Flag = <<"wait-mod">>,
     Without = [K || K <- Flags, K =/= Flag],
     case kz_binary:join(Without, <<"|">>) of
         <<>> -> kz_json:delete_key(Key, Profile);
