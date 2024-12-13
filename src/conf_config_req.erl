@@ -233,7 +233,6 @@ check_conference_record_mode(Conference, Profile) ->
             AccountId = kapps_conference:account_id(Conference),
             KVS = [{<<"auto-record">>, ?AUTO_RECORD_PATH(AccountId)}
                   ,{<<"min-required-recording-participants">>, ?MIN_REQUIRED_AUTO_RECORDING_PARTICIPANTS(AccountId)}
-                  ,{<<"recording-metadata">>, kapps_conference:recording_data(Conference)}
                   ],
             kz_json:set_values(KVS, Profile);
         'false' -> Profile

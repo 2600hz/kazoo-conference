@@ -27,7 +27,6 @@
                                        ,?DEFAULT_MIN_REQUIRED_AUTO_RECORDING_PARTICIPANTS
                                        )
        ).
--define(DEFAULT_AUTO_RECORD_PATH, <<"/tmp/${conference_name}_${strftime(%Y-%m-%d-%H-%M-%S)}.wav">>).
 -define(AUTO_RECORD_PATH(AccountId), <<"/tmp/", AccountId/binary, "_${conference_name}_${strftime(%Y-%m-%d-%H-%M-%S)}.wav">>).
 
 -define(CONFERENCE_HRL, 'true').
