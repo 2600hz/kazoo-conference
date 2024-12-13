@@ -148,8 +148,9 @@ chat_permissions(ProfileName, Chat) -> kz_json:from_list([{ProfileName, Chat}]).
 build_profile(Conference, Name) ->
     {PName, Profile} = kapps_conference:profile(kapps_conference:set_profile_name(Name, Conference)),
     maybe_log_profile_change(Name, PName),
-    lager:info("built profile ~s: ~p", [PName, Profile]),
-    build_profile_routines(kapps_conference:set_profile(Profile, Conference), Profile).
+    BuiltProfile = build_profile_routines(kapps_conference:set_profile(Profile, Conference), Profile),
+    lager:info("built profile ~s: ~p", [PName, BuiltProfile]),
+    BuiltProfile.
 
 -spec maybe_log_profile_change(kz_term:ne_binary(), kz_term:ne_binary()) -> 'ok'.
 maybe_log_profile_change(Expected, Expected) ->
@@ -162,6 +163,7 @@ build_profile_routines(Conference, Profile) ->
     Routines = [fun add_conference_params/2
                ,fun add_name_announcement/2
                ,fun add_on_enter_extension/2
+               ,fun check_conference_record_mode/2
                ,fun verify_entry_tones/2
                ,fun verify_exit_tones/2
                ,fun verify_wait_mod/2
@@ -222,6 +224,18 @@ verify_wait_mod(Conference, Profile) ->
     case kapps_conference:wait_for_moderator(Conference) of
         'true' -> ensure_wait_mod(Profile, Flags);
         'false' -> remove_wait_mod(Profile, Flags)
+    end.
+
+-spec check_conference_record_mode(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
+check_conference_record_mode(Conference, Profile) ->
+    case kapps_conference:auto_record(Conference) of
+        'true' ->
+            AccountId = kapps_conference:account_id(Conference),
+            KVS = [{<<"auto-record">>, ?AUTO_RECORD_PATH(AccountId)}
+                  ,{<<"min-required-recording-participants">>, ?MIN_REQUIRED_AUTO_RECORDING_PARTICIPANTS(AccountId)}
+                  ],
+            kz_json:set_values(KVS, Profile);
+        'false' -> Profile
     end.
 
 -spec ensure_wait_mod(kz_json:object(), kz_term:ne_binaries()) -> kz_json:object().
