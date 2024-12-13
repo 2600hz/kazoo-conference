@@ -148,8 +148,9 @@ chat_permissions(ProfileName, Chat) -> kz_json:from_list([{ProfileName, Chat}]).
 build_profile(Conference, Name) ->
     {PName, Profile} = kapps_conference:profile(kapps_conference:set_profile_name(Name, Conference)),
     maybe_log_profile_change(Name, PName),
-    lager:info("built profile ~s: ~p", [PName, Profile]),
-    build_profile_routines(kapps_conference:set_profile(Profile, Conference), Profile).
+    BuiltProfile = build_profile_routines(kapps_conference:set_profile(Profile, Conference), Profile),
+    lager:info("built profile ~s: ~p", [PName, BuiltProfile]),
+    BuiltProfile.
 
 -spec maybe_log_profile_change(kz_term:ne_binary(), kz_term:ne_binary()) -> 'ok'.
 maybe_log_profile_change(Expected, Expected) ->
@@ -235,7 +236,7 @@ check_conference_record_mode(Conference, Profile) ->
                   ,{<<"recording-metadata">>, kapps_conference:recording_data(Conference)}
                   ],
             kz_json:set_values(KVS, Profile);
-        'undefined' -> Profile
+        'false' -> Profile
     end.
 
 -spec ensure_wait_mod(kz_json:object(), kz_term:ne_binaries()) -> kz_json:object().
