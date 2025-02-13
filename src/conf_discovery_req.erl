@@ -92,7 +92,7 @@ welcome_to_conference(Srv, Conference) ->
                 lager:debug("no welcome media on discovery, using prompt"),
                 kapps_call_command:prompt(<<"conf-welcome">>, Call);
             MediaId ->
-                Media = <<"/", (kapps_call:account_id(Call))/binary, "/", MediaId/binary>>,
+                Media = kz_media_util:media_path(MediaId, kapps_call:account_id(Call)),
                 lager:debug("playing welcome media from discovery: ~s", [Media]),
                 play_welcome_greeting(kz_media_url:playback(Media), Call)
         end,
