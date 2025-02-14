@@ -179,7 +179,7 @@ handle_conference_error(JObj, Props) ->
 -spec init([kapps_call:call()]) -> {'ok', participant()}.
 init([Call]) ->
     process_flag('trap_exit', 'true'),
-    kapps_call:put_callid(Call),
+    _ = kapps_call:put_callid(Call),
     _ = start_sanity_check_timer(),
     {'ok', #participant{call=Call}}.
 

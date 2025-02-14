@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2023, 2600Hz
+%%% @copyright (C) 2011-2025, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -23,7 +23,7 @@ handle_req(DiscoveryReq, _Options) ->
 process_req(DiscoveryReq) ->
     Call = kapps_call:from_json(kz_json:get_value(<<"Call">>, DiscoveryReq)),
     _ = kapps_call_command:set(kz_json:from_list([{<<"Is-Conference">>, <<"true">>}]), 'undefined', Call),
-    kapps_call:put_callid(Call),
+    _ = kapps_call:put_callid(Call),
     case conf_participant_sup:start_participant(Call) of
         {'ok', Srv} ->
             conf_participant:set_discovery_event(DiscoveryReq, Srv),
