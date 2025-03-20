@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2011-2024, 2600Hz
+%%% @copyright (C) 2011-2025, 2600Hz
 %%% @doc
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -163,7 +163,7 @@ build_profile_routines(Conference, Profile) ->
     Routines = [fun add_conference_params/2
                ,fun add_name_announcement/2
                ,fun add_on_enter_extension/2
-               ,fun check_conference_record_mode/2
+               ,fun maybe_set_conference_record/2
                ,fun verify_entry_tones/2
                ,fun verify_exit_tones/2
                ,fun verify_wait_mod/2
@@ -226,16 +226,20 @@ verify_wait_mod(Conference, Profile) ->
         'false' -> remove_wait_mod(Profile, Flags)
     end.
 
--spec check_conference_record_mode(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
-check_conference_record_mode(Conference, Profile) ->
-    case kapps_conference:auto_record(Conference) of
+-spec maybe_set_conference_record(kapps_conference:conference(), kz_json:object()) -> kz_json:object().
+maybe_set_conference_record(Conference, Profile) ->
+    AccountId = kapps_conference:account_id(Conference),
+
+    case kz_json:is_true(<<"auto-record">>, Profile, 'false') of
         'true' ->
-            AccountId = kapps_conference:account_id(Conference),
-            KVS = [{<<"auto-record">>, ?AUTO_RECORD_PATH(AccountId)}
-                  ,{<<"min-required-recording-participants">>, ?MIN_REQUIRED_AUTO_RECORDING_PARTICIPANTS(AccountId)}
-                  ],
-            kz_json:set_values(KVS, Profile);
-        'false' -> Profile
+            AutoRecordPath = ?AUTO_RECORD_PATH(AccountId),
+            kz_json:set_values([{<<"auto-record">>, AutoRecordPath}
+                               ,{<<"min-required-recording-participants">>, ?DEFAULT_MIN_REQUIRED_AUTO_RECORDING_PARTICIPANTS}
+                               ], Profile);
+        'false' ->
+            kz_json:delete_keys([<<"auto-record">>
+                                ,<<"min-required-recording-participants">>
+                                ], Profile)
     end.
 
 -spec ensure_wait_mod(kz_json:object(), kz_term:ne_binaries()) -> kz_json:object().
